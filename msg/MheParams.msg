@@ -1,0 +1,23 @@
+bool mheActive
+ 
+float64 MHEnoiseVariancePos
+float64 MHEnoiseVarianceTh
+float64 MHEnoiseVarianceBeta
+float64 MHEnoiseVarianceBeta1
+float64 MHEnoiseVarianceLinearVel
+float64 MHEnoiseVarianceSteeringVel
+
+float64 upperX
+float64 lowerX
+float64 upperY
+float64 lowerY
+float64 upperTh
+float64 lowerTh
+float64 upperBeta
+float64 lowerBeta
+float64 upperBeta1
+float64 lowerBeta1
+float64 upperBetaDot
+float64 lowerBetaDot
+float64 upperLinearVel
+float64 lowerLinearVel
