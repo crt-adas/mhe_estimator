@@ -3,20 +3,20 @@ project(mhe_estimator)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH};${PROJECT_SOURCE_DIR}/cmake)
 
-find_package(catkin REQUIRED COMPONENTS roscpp rospy std_msgs message_generation tf)
+find_package(catkin REQUIRED COMPONENTS roscpp rospy std_msgs geometry_msgs ackermann_msgs std_srvs message_generation tf)
 
 ## Declare ROS messages and services
-add_message_files(FILES MheParams.msg)
-
+add_message_files(FILES ArticulatedAngles.msg)
 ## Generate added messages and services
-generate_messages(DEPENDENCIES std_msgs)
+generate_messages(DEPENDENCIES std_msgs std_srvs)
 
 ## Declare a catkin package
 catkin_package(
   INCLUDE_DIRS include
-  CATKIN_DEPENDS roscpp rospy std_msgs message_runtime
+  CATKIN_DEPENDS roscpp rospy std_msgs geometry_msgs ackermann_msgs std_srvs message_runtime
   DEPENDS system_lib
 )
+
 
 ## Build talker and listener
 find_package(CASADI REQUIRED)
