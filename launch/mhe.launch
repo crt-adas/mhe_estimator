@@ -45,7 +45,9 @@
         <param name="carParam/lowerX"    type="double" value="-70.0"/>   <!-- relative to goal pose -->
         <param name="carParam/upperY"    type="double" value="10.0"/>  <!-- relative to goal pose -->
         <param name="carParam/lowerY"    type="double" value="-20.0"/>   <!-- relative to goal pose -->
-        <param name="carParam/moveGuidancePoint"  type="bool" value="true"/>       
+        <param name="carParam/respectSteeringLimits"  type="bool" value="true"/>    
+        <param name="carParam/moveGuidancePoint"  type="bool" value="true"/> 
+          
         <!-- //false - gudance point on rear wheel axle tractor or wagon, 
         true - guidance point on rear wheel axle tractor (if has wagons) or front wheel axle tractor (if has not wagons) -->
 
