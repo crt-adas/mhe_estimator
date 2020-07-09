@@ -5,7 +5,7 @@
 * 
 	
     ## 2.1. Ackermann_msg:
-    *` sudo apt-get install ros-melodic-ackermann-msgs`
+    * `sudo apt-get install ros-melodic-ackermann-msgs`
     ## 2.2. CASADI:
 	* `cd ~/` 	(home)
 	* `git clone https://github.com/casadi/casadi.git`
