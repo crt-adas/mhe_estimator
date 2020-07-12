@@ -5,6 +5,7 @@
 
 #include <casadi/casadi.hpp>
 
+#include <mhe_estimator/CanData.h>
 #include <mhe_estimator/ArticulatedAngles.h>
 #include "std_msgs/String.h"
 #include "geometry_msgs/PoseWithCovarianceStamped.h"
@@ -314,33 +315,25 @@ namespace mhe_estimator
         
     }
 
-  /*
-    void estimateEst(vfoma::Real& betaEst,vfoma::Real beta,const vfoma::Real& betaPred,const vfoma::EstParams& estParams)
-    {                                    
-            betaEst += estParams.weightBeta*betaPred + (1-estParams.weightBeta)*(beta);
-    }
-
-    template <class T, long unsigned int A>
-    void estimateEst(boost::array<T,A>& qTrailerEst,const boost::array<T,A> qTrailerLoc,const boost::array<T,A> qTrailerPred,const unsigned int trailerNumber,const vfoma::EstParams& estParams)
+  
+    
+    void estimateEst(Vec3& qCarEst,const Vec3& qLoc,const Vec3& qPred,const MheParams& estParams)
     {   
-            if(trailerNumber == 0)
-            {
-                qTrailerEst[0] = estParams.weightTheta*qTrailerPred[0] + (1-estParams.weightTheta)*qTrailerLoc[0];
-                qTrailerEst[1] = estParams.weightPos*qTrailerPred[1] + (1-estParams.weightPos)*qTrailerLoc[1];
-                qTrailerEst[2] = estParams.weightPos*qTrailerPred[2] + (1-estParams.weightPos)*qTrailerLoc[2];
-            }
-            if(trailerNumber == 1)
-            {                    
-                qTrailerEst[1] = estParams.weightTheta*qTrailerPred[1] + (1-estParams.weightTheta)*qTrailerLoc[1];
-                qTrailerEst[2] = estParams.weightPos*qTrailerPred[2] + (1-estParams.weightPos)*qTrailerLoc[2];
-                qTrailerEst[3] = estParams.weightPos*qTrailerPred[3] + (1-estParams.weightPos)*qTrailerLoc[3];
-            }
-        if(trailerNumber == 1)
-        {
-            
-            qTrailerEst[0] = estParams.weightBeta1*qTrailerPred[0] + (1-estParams.weightBeta1)*qTrailerLoc[0];
-        }
+           
+        qCarEst[0] = estParams.WeightTh*qPred[0] + (1-estParams.WeightTh)*qLoc[0];
+        qCarEst[1] = estParams.WeightPos*qPred[1] + (1-estParams.WeightPos)*qLoc[1];
+        qCarEst[2] = estParams.WeightPos*qPred[2] + (1-estParams.WeightPos)*qLoc[2];
         
     }
-*/
+
+
+
+    void estimateEstTrailer(Vec4& qTrailerEst,const Vec4& qTrailerLoc,const Vec4& qTrailerPred,const MheParams& estParams)
+    {   qTrailerEst[0] = estParams.WeightTrailer1*qTrailerPred[0] + (1-estParams.WeightTrailer1)*qTrailerLoc[0];           
+        qTrailerEst[1] = estParams.WeightTh*qTrailerPred[1] + (1-estParams.WeightTh)*qTrailerLoc[1];
+        qTrailerEst[2] = estParams.WeightPos*qTrailerPred[2] + (1-estParams.WeightPos)*qTrailerLoc[2];
+        qTrailerEst[3] = estParams.WeightPos*qTrailerPred[3] + (1-estParams.WeightPos)*qTrailerLoc[3];
+    }
+
+
 }

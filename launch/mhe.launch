@@ -11,6 +11,7 @@
         <param name="mheParam/covarianceFromTopicStamp"  type="bool" value="true"/>  
         <!-- If "true" MHE estimator receives covariances by ros topic, if "false" static covariance base of below noise variances
              Note: Weighted Estimator always receives covariances base on variances below -->
+             
         <param name="mheParam/noiseVariancePos"          type="double" value="0.1"/> 
         <param name="mheParam/noiseVarianceTh"           type="double" value="0.1"/>    
         <param name="mheParam/noiseVariancesteering"     type="double" value="0.02"/>      
@@ -19,6 +20,8 @@
         <param name="mheParam/noiseVarianceLinearVel"    type="double" value="0.1"/>  
         <param name="mheParam/noiseVarianceSteeringVel"  type="double" value="0.1"/> 
 
+
+
         <param name="mheParam/WeightPos"       type="double" value="0.8"/> 
         <param name="mheParam/WeightTh"        type="double" value="0.8"/> 
         <param name="mheParam/WeightSteering"  type="double" value="0.5"/> 
@@ -26,7 +29,7 @@
         <param name="mheParam/WeightTrailer2"  type="double" value="0.8"/> 
         
 
-        <param name="carParam/WagonNumbers"     type="double" value="1.0"/>       <!-- range: 0(car), 1, 2 -->
+        <param name="carParam/WagonNumbers"     type="double" value="0"/>       <!-- range: 0(car), 1, 2 -->
         
         <param name="carParam/L"   type="double" value="5.9"/>
         <param name="carParam/L1"  type="double" value="4.17"/>

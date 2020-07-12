@@ -7,28 +7,32 @@
 #include <casadi/casadi.hpp>
 
 #include <mhe_estimator/ArticulatedAngles.h>
+#include <mhe_estimator/CanData.h>
 #include "std_msgs/String.h"
 #include "geometry_msgs/PoseWithCovarianceStamped.h"
 #include "ackermann_msgs/AckermannDrive.h"
 #include "std_srvs/Trigger.h"
 #include "std_srvs/Empty.h"
 
+//--------------------------| Moving Horizen Window Length |---------------------------// 
+const long unsigned int N_mhe = 200;
+//-------------------------------------------------------------------------------------// 
+
 namespace mhe_estimator
 {
-
   class MheReset
   {
-    
     ::ros::ServiceServer srv_;
     bool resetCallBack(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res)
     {
         //rest mhe here,
         /*
-         if(!sawPerceptionMsg)
+        if(!sawPerceptionMsg)
         {
             sawPerceptionMsg = true;
             qCarEst= qCarLoc;
-            dockingLcGenerator.computeParams(beta, qCarEst[0], qCarEst[1], qCarEst[2], dockingSafetyOffset);
+            qOneTrailerEst = qOneTrailerLoc;  
+
         }
         */
         res.success = true;
@@ -41,7 +45,7 @@ namespace mhe_estimator
         MheReset (::ros::NodeHandle& nh)
         : srv_ (nh.advertiseService ("mhe_estimator/reset", &MheReset::resetCallBack, this))
         {
-            ROS_INFO_STREAM("reset has been called");
+            //ROS_INFO_STREAM("reset function has been called");
         }
   };
   
@@ -64,38 +68,38 @@ int main(int argc, char **argv)
     /*---------------------------------------------*/
 
     /*------------| Global Var and Obj |-----------*/
-    
-    //size_t N_mhe = mheParams.N_mhe;
-    //size_t N_mhePlusOne = N_mhe+1;
     ::ros::Time lastPerceptionTime;
-
-    static const long unsigned int N_mhe = 200 ;
-    boost::array<Vec4, 201> q4wLoc;        //x y theta beta window
+    const long unsigned int N_mhePlus1 = N_mhe + 1;
+    boost::array<Vec4, N_mhePlus1> q4wLoc;        //x y theta beta window
     boost::array<Vec2, N_mhe> control2w;           //control2 window
 
-    boost::array<Vec4, 201> q4wCov;        //state cov window
-    boost::array<Vec2, 200> control2wCov;        //control cov window
+    boost::array<Vec4, N_mhePlus1> q4wCov;        //state cov window
+    boost::array<Vec2, N_mhe> control2wCov;        //control cov window
 
-    boost::array<Vec5, 201> q5wLocTrailer; //x y theta beta window triler =1 
-    boost::array<Vec2, 200> control2wTrailer;    //control2 window triler =1 
+    boost::array<Vec5, N_mhePlus1> q5wLocTrailer; //x y theta beta window triler =1 
+    boost::array<Vec2, N_mhe> control2wTrailer;    //control2 window triler =1 
 
-    boost::array<Vec5, 201> q5wCovTrailer; //state cov window trailer1
-    boost::array<Vec2, 200> control2wCovTrailer; //control cov window trailer1 
+    boost::array<Vec5, N_mhePlus1> q5wCovTrailer; //state cov window trailer1
+    boost::array<Vec2, N_mhe> control2wCovTrailer; //control cov window trailer1 
 
-    Vec4 qLoc;               //triler == 0 
+    Vec4 qLoc;                 //triler == 0 
     Vec2 controls;              //triler == 0 
     Vec4 qEstFirstSample;       //triler == 0 
 
-    Vec4 qCovMhe;               //cov triler == 0 
+    Vec4 qCov;               //cov triler == 0 
+    Vec4 qCovMhe;
     Vec2 controlsCov;           //cov triler == 0 
 
-    Vec5 qLocMheTrailer;         //triler == 1 
+    Vec5 qLocTrailer;         //triler == 1 
     Vec2 controlsTrailer;        //triler == 1 
     Vec5 qEstFirstSampleTrailer; //triler == 1 
 
+    Vec5 qCovTrailer;
     Vec5 qCovMheTrailer;         //Cov triler == 1 
     Vec2 controlsCovTrailer;     //cov triler == 1 
+
     Vec3 q;
+    Vec4 qTrailer;
     Vec3 qCarEst;
     Vec3 qCarFirst;
     Vec4 qOneTrailerFirst;
@@ -106,8 +110,6 @@ int main(int argc, char **argv)
     Vec4 qOneTrailerEst;
     Vec4 qOneTrailerLoc;
     /*---------------------------------------------*/
-
-
 
     /*----------------| Get Casadi Solver  |----------------*/
     casadi::Function solverCar;
@@ -123,6 +125,14 @@ int main(int argc, char **argv)
     /*------------------------------------------------------*/
 
     /*----------------| ROS Subscribers and Publishers  |-----------------------------------------*/
+
+    auto canDataIn = nh.Input<CanData>("/processed_can_data");
+    boost::shared_ptr<CanData> canData(new CanData());
+
+    auto perceptionPoseCamIn = nh.Input<geometry_msgs::PoseStamped>("/pose_estimator/charger_pose/location_cam");
+    auto perceptionPoseGpsIn = nh.Input<geometry_msgs::PoseStamped>("/pose_estimator/charger_pose/location_gps");
+    boost::shared_ptr<geometry_msgs::PoseStamped> perceptionPose(new geometry_msgs::PoseStamped());
+
     auto articulatedAnglesIn = nh.Input<ArticulatedAngles>("mhe_node/can_data/articulated_angles");
     boost::shared_ptr<ArticulatedAngles> articulatedAnglesData(new ArticulatedAngles());
 
@@ -147,61 +157,73 @@ int main(int argc, char **argv)
     auto ackermannDriveMheOut = nh.Output<ackermann_msgs::AckermannDrive>("mhe_node/mhe_estimated/ackermann_drive");
     boost::shared_ptr<ackermann_msgs::AckermannDrive> ackermannDriveMheData(new ackermann_msgs::AckermannDrive());
     
-    auto ackermannDriveWeightedOut = nh.Output<ackermann_msgs::AckermannDrive>("mhe_node/weighted_estimated/ackermann_drive");
-    boost::shared_ptr<ackermann_msgs::AckermannDrive> ackermannDriveWeightedData(new ackermann_msgs::AckermannDrive());
+    //auto ackermannDriveWeightedOut = nh.Output<ackermann_msgs::AckermannDrive>("mhe_node/weighted_estimated/ackermann_drive");
+    //boost::shared_ptr<ackermann_msgs::AckermannDrive> ackermannDriveWeightedData(new ackermann_msgs::AckermannDrive());
     /*------------------------------------------------------------------------------------------*/
 
 
 
-    ::ros::Rate loop_rate(mheParams.loopRate);
+    //::ros::Rate loop_rate(mheParams.loopRate);
     ROS_INFO_STREAM("Estimator loop rate: "<< mheParams.loopRate <<"");
     Real t = 0;
-    while (::ros::ok())
+    ::ros::Rate loop_rate(mheParams.loopRate);
+    while(::ros::ok())
     {
+        
         MheReset MheReset(nh);
         
-        *poseWithCovarianceData = poseWithCovarianceIn();
-        auto perceptionTh = tf::getYaw(poseWithCovarianceData->pose.pose.orientation);
-        ::ros::Duration timeDiff = poseWithCovarianceData->header.stamp - lastPerceptionTime ;
-        lastPerceptionTime = poseWithCovarianceData->header.stamp;                           
-        bool isPerceptionPoseFresh = timeDiff.toSec() >= 0.01;
-
-        *articulatedAnglesData = articulatedAnglesIn();
-        *ackermannDriveData = ackermannDriveIn();
+        //*poseWithCovarianceData = poseWithCovarianceIn();
+        //*articulatedAnglesData = articulatedAnglesIn();
+        //*ackermannDriveData = ackermannDriveIn();
      
-
+        *canData = canDataIn(); 
+        *perceptionPose = perceptionPoseGpsIn();   
+        
+                   
+        auto perceptionTh = tf::getYaw(perceptionPose->pose.orientation);
+        ::ros::Duration timeDiff = perceptionPose->header.stamp - lastPerceptionTime ;
+       
+        lastPerceptionTime = perceptionPose->header.stamp;                           
+        bool isPerceptionPoseFresh = timeDiff.toSec() >= 0.01;
 
         if (carParams.TrailerNumber == 0)
         {
-
+            ackermannDriveData->speed = canData->tachoVelocity;
+            ackermannDriveData->steering_angle = canData->steeringAngle;
+            //th base on estimator 
+            qLoc[1] = perceptionPose->pose.position.x;
+            qLoc[2] = perceptionPose->pose.position.y;
+            qLoc[3] = canData->steeringAngle;
+            
             if(mheParams.mheActive)
             {
                 qLoc[0] = continuousAngle(perceptionTh, qCarEstMhe[0]);
-                qLoc[1] = poseWithCovarianceData->pose.pose.position.x;
-                qLoc[2] = poseWithCovarianceData->pose.pose.position.y;
-                qLoc[3] = ackermannDriveData->steering_angle;
-
                 controls[0] = 0;  //no measured value for dbeta
-                controls[1] = ackermannDriveData->speed; //uCar.longitudinalVelocity + noiseArray[4];
+                controls[1] = canData->tachoVelocity; //uCar.longitudinalVelocity + noiseArray[4];
 
-                qCovMhe[0] = poseWithCovarianceData->pose.covariance.elems[36];         
-                qCovMhe[1] = poseWithCovarianceData->pose.covariance.elems[0];
-                qCovMhe[2] = poseWithCovarianceData->pose.covariance.elems[7];
-                qCovMhe[3] = mheParams.noiseVariancesteering;
+                qCov[0] = 1/mheParams.noiseVarianceTh;         
+                qCov[1] = 1/mheParams.noiseVariancePos;
+                qCov[2] = 1/mheParams.noiseVariancePos;
+                qCov[3] = 1/mheParams.noiseVariancesteering;
                 controlsCov[0] = 0;
-                controlsCov[0] = mheParams.noiseVarianceLinearVel;
+                controlsCov[0] = 1/mheParams.noiseVarianceLinearVel;
 
                 std::rotate(q4wLoc.begin(), q4wLoc.begin()+1, q4wLoc.end());
                 std::rotate(control2w.begin(), control2w.begin()+1, control2w.end());
                 std::rotate(q4wCov.begin(), q4wCov.begin()+1, q4wCov.end());
                 std::rotate(control2wCov.begin(), control2wCov.begin()+1, control2wCov.end());
-
+          
                 q4wCov[N_mhe] = {0.0, 0.0, 0.0, 0.0};
-                ::ros::Duration sampleDiff = ::ros::Time::now() - poseWithCovarianceData->header.stamp;
+                ::ros::Duration sampleDiff = ::ros::Time::now() - perceptionPose->header.stamp;
                 int sampleNumber = floor(sampleDiff.toSec()/(1.0/mheParams.loopRate));
+                if (sampleNumber > N_mhe)
+                {
+                    ROS_WARN_STREAM("WARNING: localization delay = "<< sampleNumber<<" sample" );
+                }
                 if(sampleNumber >=0  && sampleNumber < N_mhe)
                 {
-                    q4wCov[N_mhe - sampleNumber] = qCovMhe;
+                    ROS_INFO_STREAM("SampleIndex: "<<sampleNumber <<" ");
+                    q4wCov[N_mhe - sampleNumber] = qCov;
                     q4wLoc[N_mhe - sampleNumber] = qLoc;
                 }
 
@@ -220,12 +242,21 @@ int main(int argc, char **argv)
                 qEstFirstSample[2] = resx[2]; //y
                 qEstFirstSample[3] = resx[3]; //beta0
 
-                ctrlEstMhe[0] = resx[(4*(N_mhe+1))+(2*N_mhe)-2]; //dbeta
-                ctrlEstMhe[1] = resx[(4*(N_mhe+1))+(2*N_mhe)-1]; //u2
+                ctrlEstMhe[0] = resx[(4*(N_mhe+1))+(4*N_mhe)-4]; //dbeta
+                ctrlEstMhe[1] = resx[(4*(N_mhe+1))+(4*N_mhe)-3]; //u2
+
+                qCovMhe[0] = resx[(4*(N_mhe+1))+(4*N_mhe)+(4*(N_mhe+1))-4];//theta
+                qCovMhe[1] = resx[(4*(N_mhe+1))+(4*N_mhe)+(4*(N_mhe+1))-3];//x 
+                qCovMhe[2] = resx[(4*(N_mhe+1))+(4*N_mhe)+(4*(N_mhe+1))-2];//y
+                qCovMhe[3] = resx[(4*(N_mhe+1))+(4*N_mhe)+(4*(N_mhe+1))-1];//beta0
                 
                 poseWithCovarianceMheData->pose.pose.orientation = tf::createQuaternionMsgFromYaw(qCarEstMhe[0]);
                 poseWithCovarianceMheData->pose.pose.position.x = qCarEstMhe[1];
                 poseWithCovarianceMheData->pose.pose.position.y = qCarEstMhe[2];
+
+                poseWithCovarianceMheData->pose.covariance.elems[0] = qCovMhe[1];
+                poseWithCovarianceMheData->pose.covariance.elems[7] = qCovMhe[2];
+                poseWithCovarianceMheData->pose.covariance.elems[35] = qCovMhe[0];
                 poseWithCovarianceMheOut(poseWithCovarianceMheData);
 
                 ackermannDriveMheData->steering_angle = qCarEstMhe[3];
@@ -235,11 +266,12 @@ int main(int argc, char **argv)
             }
             if(mheParams.WeightedActive)
             {
-                q = {qLoc[1],qLoc[2],qLoc[3]};
+                qLoc[0] = continuousAngle(perceptionTh, qCarEst[0]);
+                q = {qLoc[0],qLoc[1],qLoc[2]};
                 auto simFunc = [&](const Vec3& q, Vec3& dq, const double t)
                 {
                     //if(!carParams.moveGuidancePoint)
-                        dq = RDCarKinematicsGPRear(carParams, q, *ackermannDriveMheData);
+                        dq = RDCarKinematicsGPRear(carParams, q, *ackermannDriveData);
                     //else
                     //  dq = RDCarKinematicsGPFront(carParams, q, uCar);
                 };
@@ -253,21 +285,69 @@ int main(int argc, char **argv)
                 else
                 {
                     ROS_INFO("fresh gps pose");
-                    //estimateEst(qCarEst, qCarLoc, qCarPred, carParams.trailersNumber,estParams);                            
-                   
+                    estimateEst(qCarEst, q, qCarPred ,mheParams);  
                 }
+                poseWithCovarianceWeightedData->pose.pose.orientation = tf::createQuaternionMsgFromYaw(qCarEst[0]);
+                poseWithCovarianceWeightedData->pose.pose.position.x = qCarEst[1];
+                poseWithCovarianceWeightedData->pose.pose.position.y = qCarEst[2];
+                poseWithCovarianceWeightedOut(poseWithCovarianceWeightedData);
+            
             }
         }else if (carParams.TrailerNumber == 1)
         {
+            ackermannDriveData->speed = canData->tachoVelocity;
+            ackermannDriveData->steering_angle = canData->steeringAngle;
+            qLocTrailer[0] = canData->beta1;
+            //Th base on estimator is different
+            qLocTrailer[2] = perceptionPose->pose.position.x;
+            qLocTrailer[3] = perceptionPose->pose.position.y;
+            qLocTrailer[4] = canData->steeringAngle;
+            if(mheParams.mheActive)
+            {
+                qLocTrailer[1] = continuousAngle(perceptionTh, qMheTrailer[1]); 
 
-            //estimateMheTrailer(argx0Trailer,qMheTrailer, ctrMheTrailer, q5wLocTrailer, control2wTrailer, q5wCovTrailer, control2wCovTrailer, carParams, qFinal, mheParams,solverTrailer);
+            }   
+            if(mheParams.WeightedActive)
+            {
+                qLocTrailer[1] = continuousAngle(perceptionTh, qOneTrailerEst[1]);
+                qTrailer = {qLocTrailer[0],qLocTrailer[1],qLocTrailer[2],qLocTrailer[3]};
+                auto simFunc = [&](const Vec4& qTrailer, Vec4& dq, const double t)
+                {
+                    if(!carParams.moveGuidancePoint)
+                        dq = OneTrailerKinematicsGPRear(carParams, qTrailer, *ackermannDriveData);
+                    else
+                        dq = OneTrailerKinematicsGPFront(carParams, qTrailer, *ackermannDriveData);
+                };
+                    
+                Vec4 qOneTrailerPred = qOneTrailerEst;
+                boost::numeric::odeint::integrate(simFunc, qOneTrailerPred, 0.0, 1.0/(Real)mheParams.loopRate, 1.0/(Real)mheParams.loopRate);
+                
+                if(!isPerceptionPoseFresh)
+                {
+                    qOneTrailerEst = qOneTrailerPred;
+                }
+                else
+                {
+                    ROS_INFO("fresh gps pose");
+                    estimateEstTrailer(qOneTrailerEst, qOneTrailerLoc, qOneTrailerPred, mheParams);
+                }
+                poseWithCovarianceWeightedData->pose.pose.orientation = tf::createQuaternionMsgFromYaw(qOneTrailerEst[1]);
+                poseWithCovarianceWeightedData->pose.pose.position.x = qOneTrailerEst[2];
+                poseWithCovarianceWeightedData->pose.pose.position.y = qOneTrailerEst[3];
+                poseWithCovarianceWeightedOut(poseWithCovarianceWeightedData);
+
+                articulatedAnglesWeightedData->trailer1 = qOneTrailerEst[0];
+                articulatedAnglesWeightedOut(articulatedAnglesWeightedData);
+
+            }
         }else
         {
-            ROS_ERROR(" Trailer Number out of range, accepted values: 1, 2");
+            ROS_ERROR(" Trailer Number out of range, accepted values: 0, 1");
         }
-
+        
         t += 1/((Real) mheParams.loopRate);
-        ROS_INFO_STREAM("I'm spinning");
+        //ROS_INFO_STREAM("t: "<<t<<"");
+        //ROS_INFO_STREAM("I'm spinning");
         ::ros::spinOnce();
         loop_rate.sleep();
 

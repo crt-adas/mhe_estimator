@@ -1,6 +1,7 @@
 #pragma once
 
 #include <boost/array.hpp>
+#include <mhe_estimator/CanData.h>
 #include <mhe_estimator/ArticulatedAngles.h>
 #include "ackermann_msgs/AckermannDrive.h"
 #include <tf/tf.h>
@@ -38,6 +39,16 @@ namespace mhe_estimator
     inline int sign(Real val)
     {
       return (0 < val) - (val < 0);
+    }
+    
+    inline Real sat(Real x, Real lim)
+    {
+      if(x > lim)
+        return lim;
+      else if(x < -lim)
+        return - lim;
+      else
+        return x;
     }
     
     inline double continuousAngle(Real angle, Real lastAngle)
