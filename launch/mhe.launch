@@ -12,7 +12,7 @@
         <!-- If "true" perception from GPS, if "false" Perception from Camera -->
         <param name="mheParam/covarianceFromTopicStamp"  type="bool" value="false"/>  
         <!-- If "true" MHE estimator receives covariances by ros topic, if "false" static covariance base of below noise variances
-             Note: Weighted Estimator always receives covariances base on variances below -->
+             Note: Weighted Estimator always receives covariances base on variances below (by ros topic not impelimented yet)-->
              
         <param name="mheParam/noiseVariancePos"          type="double" value="0.1"/> 
         <param name="mheParam/noiseVarianceTh"           type="double" value="0.1"/>    
