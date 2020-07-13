@@ -315,7 +315,119 @@ namespace mhe_estimator
         
     }
 
-  
+    template <class T, class T2, long unsigned int A, long unsigned int B>
+    void estimateMheTrailer(casadi::DM& argx0Trailer, const Vec5& qMheTrailer,const Vec2& ctrMheTrailer,const boost::array<T, B>& q5wLocTrailer,
+        const boost::array<T2, A>& control2wTrailer,const boost::array<T, B>& q5wCovTrailer,
+        const boost::array<T2, A>& control2wCovTrailer,const mhe_estimator::CarParams& carParams,
+        const mhe_estimator::MheParams& mheParams,const casadi::Function& solver)  //check the ref and const
+    {
+        
+        unsigned int n_states = 5; unsigned int n_controls = 2;
+        std::map<std::string, DM> arg, res;
+        arg["lbg"] = SX::zeros(n_states*A); //size = n_state * N_Mhe 
+        arg["ubg"] = SX::zeros(n_states*A);
+        
+        std::vector<double> lbx((n_controls*A)+(n_states*B), 0.0);
+        std::vector<double> ubx((n_controls*A)+(n_states*B), 0.0);
+        
+        for(int i = 0; i < (n_states*B); i += n_states) 
+        {
+            lbx[i] = -carParams.trailer1Limit; 
+            lbx[i+1] = carParams.lowerTh;   //theta lower bound
+            lbx[i+2] = carParams.lowerX;    //x lower bound
+            lbx[i+3] = carParams.lowerY;    //y lower bound
+            lbx[i+4] = -carParams.steeringLimit;
+        
+            ubx[i] = carParams.trailer1Limit; 
+            ubx[i+1] = carParams.upperTh;   //theta upper bound
+            ubx[i+2] = carParams.upperX;    //x upper bound
+            ubx[i+3] = carParams.upperY;    //y upper bound
+            ubx[i+4] = carParams.steeringLimit; 
+        }
+
+        double u2limitUp = carParams.LinearVelLimit;
+        double u2limitDown = -carParams.LinearVelLimit;
+       
+        // if betaLimit then bounds of u2 = 0
+        double k1real = (1/carParams.L1)*tan(qMheTrailer[0] - atan((carParams.Lh1/carParams.L)*tan(qMheTrailer[4])));
+        if(carParams.respectSteeringLimits)
+        {
+            double triggeringPoint = carParams.trailer1Limit*0.95;
+            double weight = (fabs(qMheTrailer[0]) - triggeringPoint)/(carParams.trailer1Limit - triggeringPoint);
+            if(weight < 0)
+                weight = 0;
+            if(weight > 1)
+                weight = 1;
+
+            double dBeta1 = ctrMheTrailer[1]*(sin(qMheTrailer[0])/carParams.Lh1 - (1 + (carParams.L1/carParams.Lh1)*cos(qMheTrailer[0]))*k1real);
+            if(weight > 0 && mhe_estimator::sign(dBeta1) == mhe_estimator::sign(qMheTrailer[0]))
+            {
+                u2limitDown = 0.0;
+                u2limitUp = 0.0;
+            }  
+        }
+
+        if(fabs(k1real) > 5000)
+        {
+            u2limitDown = 0.0;
+            u2limitUp = 0.0;
+        }
+            
+        ////////////////////////////////////////////
+
+        for(int i = (n_states*B); i < ((n_controls*A)+(n_states*B)); i += n_controls) 
+        {
+            lbx[i] = -carParams.SteeringVelLimit;    //dbeta lower bound
+            lbx[i+1] = u2limitDown;  //linear.vel lower bound
+
+            ubx[i] = carParams.SteeringVelLimit;  //dbeta upper bound
+            ubx[i+1] = u2limitUp;  //linear.vel upper bound  
+        }
+        arg["lbx"] = lbx;
+        arg["ubx"] = ubx;
+        //--------------ALL OF THE ABOVE IS JUST A PROBLEM SET UP-------------//
+
+        DM argp = SX::zeros(n_states,B+A+B+A);
+        for(int j = 0; j < B; j++) //measured state
+        {
+            boost::array<double, 5> qloc = q5wLocTrailer[j];
+            argp(0,j) = qloc[0]; //beta1
+            argp(1,j) = qloc[1]; //theta
+            argp(2,j) = qloc[2]; //x
+            argp(3,j) = qloc[3]; //y
+            argp(4,j) = qloc[4]; //beta0
+        }
+        for(int j = 0; j < A; j++) //measured control
+        {
+            boost::array<double, 2> qctr = control2wTrailer[j];
+            //argp(0,j+B) = 0.0;   //we do not have measured control dbeta 
+            argp(1,j+B) = qctr[1];
+        }
+        for(int j = 0; j < B; j++) //state cov matrix
+        {
+            boost::array<double, 5> qCov = q5wCovTrailer[j];
+            argp(0,B+A+j) = qCov[0]; //beta1
+            argp(1,B+A+j) = qCov[1]; //theta
+            argp(2,B+A+j) = qCov[2]; //x
+            argp(3,B+A+j) = qCov[3]; //y
+            argp(4,B+A+j) = qCov[4]; //beta0
+        }
+        for(int j = 0; j < A; j++) //control cov matrix
+        {
+            boost::array<double, 2> ctrCov = control2wCovTrailer[j];
+            //argp(0,B+A+B+j) = 0.0;   //we do not have measured control dbeta 
+            argp(1,B+A+B+j) = ctrCov[1];
+        }
+
+
+        arg["p"] = argp;
+        arg["x0"] = argx0Trailer; //Comes as parameter
+
+        res = solver(arg); // solve MHE
+        argx0Trailer = res.at("x");
+
+    
+    }
     
     void estimateEst(Vec3& qCarEst,const Vec3& qLoc,const Vec3& qPred,const MheParams& estParams)
     {   
@@ -325,8 +437,6 @@ namespace mhe_estimator
         qCarEst[2] = estParams.WeightPos*qPred[2] + (1-estParams.WeightPos)*qLoc[2];
         
     }
-
-
 
     void estimateEstTrailer(Vec4& qTrailerEst,const Vec4& qTrailerLoc,const Vec4& qTrailerPred,const MheParams& estParams)
     {   qTrailerEst[0] = estParams.WeightTrailer1*qTrailerPred[0] + (1-estParams.WeightTrailer1)*qTrailerLoc[0];           

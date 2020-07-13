@@ -28,7 +28,7 @@ namespace mhe_estimator
 
     struct MheParams
     {
-        bool mheActive, WeightedActive, covarianceFromTopicStamp;
+        bool mheActive, WeightedActive, covarianceFromTopicStamp, perceptionGPS;
         Real N_mhe, loopRate;   
         Real noiseVariancePos, noiseVarianceTh, noiseVariancesteering, noiseVarianceTrailer1;
         Real noiseVarianceTrailer2, noiseVarianceLinearVel, noiseVarianceSteeringVel;
@@ -167,6 +167,8 @@ namespace mhe_estimator
         singleParamIn(mheParams.N_mhe,paramName,nh);
         paramName = "/mhe_estimator/mheParam/loopRate";
         singleParamIn(mheParams.loopRate,paramName,nh);
+        paramName = "/mhe_estimator/mheParam/perceptionGPS";
+        singleParamIn(mheParams.perceptionGPS,paramName,nh);
         paramName = "/mhe_estimator/mheParam/covarianceFromTopicStamp";
         singleParamIn(mheParams.covarianceFromTopicStamp,paramName,nh);
         paramName = "/mhe_estimator/mheParam/noiseVariancePos";
