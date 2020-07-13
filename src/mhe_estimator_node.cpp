@@ -128,47 +128,47 @@ int main(int argc, char **argv)
     /*----------------| ROS Subscribers and Publishers  |-----------------------------------------*/
 
     auto canDataIn = nh.Input<CanData>("/processed_can_data");
-    boost::shared_ptr<CanData> canData(new CanData());
+    CanData canData;
 
     auto perceptionPoseCamIn = nh.Input<geometry_msgs::PoseStamped>("/pose_estimator/charger_pose/location_cam");
     auto perceptionPoseGpsIn = nh.Input<geometry_msgs::PoseStamped>("/pose_estimator/charger_pose/location_gps");
-    boost::shared_ptr<geometry_msgs::PoseStamped> perceptionPose(new geometry_msgs::PoseStamped());
+    geometry_msgs::PoseStamped perceptionPose;
 
     auto perceptionTwistOut = nh.Output<geometry_msgs::Twist>("mhe_node/perception/twist");
-    boost::shared_ptr<geometry_msgs::Twist> perceptionTwistData(new geometry_msgs::Twist());
+    geometry_msgs::Twist perceptionTwistData;
 
     auto perceptionTwistMheOut = nh.Output<geometry_msgs::Twist>("mhe_node/mhe_estimated/twist");
-    boost::shared_ptr<geometry_msgs::Twist> perceptionTwistMheData(new geometry_msgs::Twist());
+    geometry_msgs::Twist perceptionTwistMheData;
 
     auto perceptionTwistWeightedOut = nh.Output<geometry_msgs::Twist>("mhe_node/weighted_estimated/twist");
-    boost::shared_ptr<geometry_msgs::Twist> perceptionTwistWeightedData(new geometry_msgs::Twist());
+    geometry_msgs::Twist perceptionTwistWeightedData;
 
     auto articulatedAnglesIn = nh.Input<ArticulatedAngles>("mhe_node/can_data/articulated_angles");
-    boost::shared_ptr<ArticulatedAngles> articulatedAnglesData(new ArticulatedAngles());
+    ArticulatedAngles articulatedAnglesData;
 
     auto articulatedAnglesMheOut = nh.Output<ArticulatedAngles>("mhe_node/mhe_estimated/articulated_angles");
-    boost::shared_ptr<ArticulatedAngles> articulatedAnglesMheData(new ArticulatedAngles());
+    ArticulatedAngles articulatedAnglesMheData;
 
     auto articulatedAnglesWeightedOut = nh.Output<ArticulatedAngles>("mhe_node/weighted_estimated/articulated_angles");
-    boost::shared_ptr<ArticulatedAngles> articulatedAnglesWeightedData(new ArticulatedAngles());
+    ArticulatedAngles articulatedAnglesWeightedData;
 
     auto poseWithCovarianceIn = nh.Input<geometry_msgs::PoseWithCovarianceStamped>("mhe_node/perception_data/pose_with_covariance");
-    boost::shared_ptr<geometry_msgs::PoseWithCovarianceStamped> poseWithCovarianceData(new geometry_msgs::PoseWithCovarianceStamped());
+    geometry_msgs::PoseWithCovarianceStamped poseWithCovarianceData;
     
     auto poseWithCovarianceMheOut = nh.Output<geometry_msgs::PoseWithCovarianceStamped>("mhe_node/mhe_estimated/pose_with_covariance");
-    boost::shared_ptr<geometry_msgs::PoseWithCovarianceStamped> poseWithCovarianceMheData(new geometry_msgs::PoseWithCovarianceStamped());
+    geometry_msgs::PoseWithCovarianceStamped poseWithCovarianceMheData;
 
     auto poseWithCovarianceWeightedOut = nh.Output<geometry_msgs::PoseWithCovarianceStamped>("mhe_node/weighted_estimated/pose_with_covariance");
-    boost::shared_ptr<geometry_msgs::PoseWithCovarianceStamped> poseWithCovarianceWeightedData(new geometry_msgs::PoseWithCovarianceStamped());
+    geometry_msgs::PoseWithCovarianceStamped poseWithCovarianceWeightedData;
 
     auto ackermannDriveIn = nh.Input<ackermann_msgs::AckermannDrive>("mhe_node/can_data/ackermann_drive");
-    boost::shared_ptr<ackermann_msgs::AckermannDrive> ackermannDriveData(new ackermann_msgs::AckermannDrive());
+    ackermann_msgs::AckermannDrive ackermannDriveData;
 
     auto ackermannDriveMheOut = nh.Output<ackermann_msgs::AckermannDrive>("mhe_node/mhe_estimated/ackermann_drive");
-    boost::shared_ptr<ackermann_msgs::AckermannDrive> ackermannDriveMheData(new ackermann_msgs::AckermannDrive());
+    ackermann_msgs::AckermannDrive ackermannDriveMheData;
     
     //auto ackermannDriveWeightedOut = nh.Output<ackermann_msgs::AckermannDrive>("mhe_node/weighted_estimated/ackermann_drive");
-    //boost::shared_ptr<ackermann_msgs::AckermannDrive> ackermannDriveWeightedData(new ackermann_msgs::AckermannDrive());
+    //ackermann_msgs::AckermannDrive ackermannDriveWeightedData;
     /*------------------------------------------------------------------------------------------*/
 
     if (carParams.TrailerNumber == 0)
@@ -228,42 +228,42 @@ int main(int argc, char **argv)
         //*articulatedAnglesData = articulatedAnglesIn();
         //*ackermannDriveData = ackermannDriveIn();
      
-        *canData = canDataIn(); 
-        ackermannDriveData->speed = canData->tachoVelocity;
-        ackermannDriveData->steering_angle = canData->steeringAngle;
+        canData = canDataIn(); 
+        ackermannDriveData.speed = canData.tachoVelocity;
+        ackermannDriveData.steering_angle = canData.steeringAngle;
 
         if(mheParams.perceptionGPS)
         {
-            *perceptionPose = perceptionPoseGpsIn(); 
+            perceptionPose = perceptionPoseGpsIn(); 
         }else
         {
-            *perceptionPose = perceptionPoseCamIn();  
+            perceptionPose = perceptionPoseCamIn();  
         }
          
-        auto perceptionTh = tf::getYaw(perceptionPose->pose.orientation);
-        ::ros::Duration timeDiff = perceptionPose->header.stamp - lastPerceptionTime ;
-        lastPerceptionTime = perceptionPose->header.stamp;                           
+        auto perceptionTh = tf::getYaw(perceptionPose.pose.orientation);
+        ::ros::Duration timeDiff = perceptionPose.header.stamp - lastPerceptionTime ;
+        lastPerceptionTime = perceptionPose.header.stamp;                           
         bool isPerceptionPoseFresh = timeDiff.toSec() >= 0.01;
 
-        perceptionTwistData->linear.x = perceptionPose->pose.position.x;
-        perceptionTwistData->linear.y = perceptionPose->pose.position.y;
-        perceptionTwistData->angular.z = perceptionTh;
+        perceptionTwistData.linear.x = perceptionPose.pose.position.x;
+        perceptionTwistData.linear.y = perceptionPose.pose.position.y;
+        perceptionTwistData.angular.z = perceptionTh;
         
-        if(perceptionPose->pose.position.x != 0 && perceptionPose->pose.position.y != 0)
+        if(perceptionPose.pose.position.x != 0 && perceptionPose.pose.position.y != 0)
         {
             if (carParams.TrailerNumber == 0)
             {
                 
                 //Th base on estimator 
-                qLoc[1] = perceptionPose->pose.position.x;
-                qLoc[2] = perceptionPose->pose.position.y;
-                qLoc[3] = canData->steeringAngle;
+                qLoc[1] = perceptionPose.pose.position.x;
+                qLoc[2] = perceptionPose.pose.position.y;
+                qLoc[3] = canData.steeringAngle;
                 
                 if(mheParams.mheActive)
                 {
                     qLoc[0] = continuousAngle(perceptionTh, qCarEstMhe[0]);
                     controls[0] = 0;  //no measured value for dbeta
-                    controls[1] = canData->tachoVelocity; //uCar.longitudinalVelocity + noiseArray[4];
+                    controls[1] = canData.tachoVelocity; //uCar.longitudinalVelocity + noiseArray[4];
 
                     qCov[0] = 1/mheParams.noiseVarianceTh;         
                     qCov[1] = 1/mheParams.noiseVariancePos;
@@ -278,7 +278,7 @@ int main(int argc, char **argv)
                     std::rotate(control2wCov.begin(), control2wCov.begin()+1, control2wCov.end());
             
                     q4wCov[N_mhe] = {0.0, 0.0, 0.0, 0.0};
-                    ::ros::Duration sampleDiff = ::ros::Time::now() - perceptionPose->header.stamp;
+                    ::ros::Duration sampleDiff = ::ros::Time::now() - perceptionPose.header.stamp;
                     int sampleNumber = floor(sampleDiff.toSec()/(1.0/mheParams.loopRate));
                     if (sampleNumber > N_mhe)
                     {
@@ -314,23 +314,23 @@ int main(int argc, char **argv)
                     qCovMhe[2] = resx[(4*(N_mhe+1))+(4*N_mhe)+(4*(N_mhe+1))-2];//y
                     qCovMhe[3] = resx[(4*(N_mhe+1))+(4*N_mhe)+(4*(N_mhe+1))-1];//beta0
                     
-                    poseWithCovarianceMheData->pose.pose.orientation = tf::createQuaternionMsgFromYaw(qCarEstMhe[0]);
-                    poseWithCovarianceMheData->pose.pose.position.x = qCarEstMhe[1];
-                    poseWithCovarianceMheData->pose.pose.position.y = qCarEstMhe[2];
+                    poseWithCovarianceMheData.pose.pose.orientation = tf::createQuaternionMsgFromYaw(qCarEstMhe[0]);
+                    poseWithCovarianceMheData.pose.pose.position.x = qCarEstMhe[1];
+                    poseWithCovarianceMheData.pose.pose.position.y = qCarEstMhe[2];
 
-                    poseWithCovarianceMheData->pose.covariance.elems[0] = qCovMhe[1];
-                    poseWithCovarianceMheData->pose.covariance.elems[7] = qCovMhe[2];
-                    poseWithCovarianceMheData->pose.covariance.elems[35] = qCovMhe[0];
+                    poseWithCovarianceMheData.pose.covariance.elems[0] = qCovMhe[1];
+                    poseWithCovarianceMheData.pose.covariance.elems[7] = qCovMhe[2];
+                    poseWithCovarianceMheData.pose.covariance.elems[35] = qCovMhe[0];
                     poseWithCovarianceMheOut(poseWithCovarianceMheData);
 
-                    ackermannDriveMheData->steering_angle = qCarEstMhe[3];
-                    ackermannDriveMheData->speed = ctrlEstMhe[1];
-                    ackermannDriveMheData->steering_angle_velocity = ctrlEstMhe[0];
+                    ackermannDriveMheData.steering_angle = qCarEstMhe[3];
+                    ackermannDriveMheData.speed = ctrlEstMhe[1];
+                    ackermannDriveMheData.steering_angle_velocity = ctrlEstMhe[0];
                     ackermannDriveMheOut(ackermannDriveMheData);
 
-                    perceptionTwistMheData->angular.z = qCarEstMhe[0];
-                    perceptionTwistMheData->linear.x = qCarEstMhe[1];
-                    perceptionTwistMheData->linear.y = qCarEstMhe[2];
+                    perceptionTwistMheData.angular.z = qCarEstMhe[0];
+                    perceptionTwistMheData.linear.x = qCarEstMhe[1];
+                    perceptionTwistMheData.linear.y = qCarEstMhe[2];
                     perceptionTwistMheOut(perceptionTwistMheData);
 
                 }
@@ -341,9 +341,9 @@ int main(int argc, char **argv)
                     auto simFunc = [&](const Vec3& q, Vec3& dq, const double t)
                     {
                         //if(!carParams.moveGuidancePoint)
-                            dq = RDCarKinematicsGPRear(carParams, q, *ackermannDriveData);
+                            dq = RDCarKinematicsGPRear(carParams, q, ackermannDriveData);
                         //else
-                        //  dq = RDCarKinematicsGPFront(carParams, q, uCar);
+                        //  dq = RDCarKinematicsGPFront(carParams, q, ackermannDriveData);
                     };
                     Vec3 qCarPred = qCarEst;
                     boost::numeric::odeint::integrate(simFunc, qCarPred, 0.0, 1.0/(Real)mheParams.loopRate, 1.0/(Real)mheParams.loopRate);
@@ -357,30 +357,30 @@ int main(int argc, char **argv)
                         ROS_INFO("fresh gps pose");
                         estimateEst(qCarEst, q, qCarPred ,mheParams);  
                     }
-                    poseWithCovarianceWeightedData->pose.pose.orientation = tf::createQuaternionMsgFromYaw(qCarEst[0]);
-                    poseWithCovarianceWeightedData->pose.pose.position.x = qCarEst[1];
-                    poseWithCovarianceWeightedData->pose.pose.position.y = qCarEst[2];
+                    poseWithCovarianceWeightedData.pose.pose.orientation = tf::createQuaternionMsgFromYaw(qCarEst[0]);
+                    poseWithCovarianceWeightedData.pose.pose.position.x = qCarEst[1];
+                    poseWithCovarianceWeightedData.pose.pose.position.y = qCarEst[2];
                     poseWithCovarianceWeightedOut(poseWithCovarianceWeightedData);
 
-                    perceptionTwistWeightedData->angular.z = qCarEst[0];
-                    perceptionTwistWeightedData->linear.x = qCarEst[1];
-                    perceptionTwistWeightedData->linear.y = qCarEst[2];
+                    perceptionTwistWeightedData.angular.z = qCarEst[0];
+                    perceptionTwistWeightedData.linear.x = qCarEst[1];
+                    perceptionTwistWeightedData.linear.y = qCarEst[2];
                     perceptionTwistWeightedOut(perceptionTwistWeightedData);
                 }
             }else if (carParams.TrailerNumber == 1)
             {
                 
-                qLocTrailer[0] = canData->beta1;
+                qLocTrailer[0] = canData.beta1;
                 //Th base on estimator is different
-                qLocTrailer[2] = perceptionPose->pose.position.x;
-                qLocTrailer[3] = perceptionPose->pose.position.y;
-                qLocTrailer[4] = canData->steeringAngle;
+                qLocTrailer[2] = perceptionPose.pose.position.x;
+                qLocTrailer[3] = perceptionPose.pose.position.y;
+                qLocTrailer[4] = canData.steeringAngle;
 
                 if(mheParams.mheActive)
                 {
                     qLocTrailer[1] = continuousAngle(perceptionTh, qMheTrailer[1]); 
                     controlsTrailer[0] = 0; //no measured value for dbeta
-                    controlsTrailer[1] = canData->tachoVelocity; //uCar.longitudinalVelocity + noiseArray[4];
+                    controlsTrailer[1] = canData.tachoVelocity; //uCar.longitudinalVelocity + noiseArray[4];
                 
                     qCovTrailer[0] = 1/mheParams.noiseVarianceTrailer1;
                     qCovTrailer[1] = 1/mheParams.noiseVarianceTh;
@@ -397,7 +397,7 @@ int main(int argc, char **argv)
                     std::rotate(control2wCovTrailer.begin(), control2wCovTrailer.begin()+1, control2wCovTrailer.end());
                     q5wCovTrailer[N_mhe] = {0.0, 0.0, 0.0, 0.0, 0.0};
                 
-                    ::ros::Duration sampleDiff = ::ros::Time::now() - perceptionPose->header.stamp;
+                    ::ros::Duration sampleDiff = ::ros::Time::now() - perceptionPose.header.stamp;
                     int sampleNumber = floor(sampleDiff.toSec()/(1.0/mheParams.loopRate));
                     if (sampleNumber > N_mhe)
                     {
@@ -438,23 +438,23 @@ int main(int argc, char **argv)
                     qCovMheTrailer[3] = resxTrailer[(5*(N_mhe+1))+(5*N_mhe)+(5*(N_mhe+1))-2]; //y
                     qCovMheTrailer[4] = resxTrailer[(5*(N_mhe+1))+(5*N_mhe)+(5*(N_mhe+1))-1]; //beta0
 
-                    poseWithCovarianceMheData->pose.pose.orientation = tf::createQuaternionMsgFromYaw(qMheTrailer[1]);
-                    poseWithCovarianceMheData->pose.pose.position.x = qMheTrailer[2];
-                    poseWithCovarianceMheData->pose.pose.position.y = qMheTrailer[3];
+                    poseWithCovarianceMheData.pose.pose.orientation = tf::createQuaternionMsgFromYaw(qMheTrailer[1]);
+                    poseWithCovarianceMheData.pose.pose.position.x = qMheTrailer[2];
+                    poseWithCovarianceMheData.pose.pose.position.y = qMheTrailer[3];
 
-                    poseWithCovarianceMheData->pose.covariance.elems[0] = qCovMheTrailer[2];
-                    poseWithCovarianceMheData->pose.covariance.elems[7] = qCovMheTrailer[3];
-                    poseWithCovarianceMheData->pose.covariance.elems[35] = qCovMheTrailer[1];
+                    poseWithCovarianceMheData.pose.covariance.elems[0] = qCovMheTrailer[2];
+                    poseWithCovarianceMheData.pose.covariance.elems[7] = qCovMheTrailer[3];
+                    poseWithCovarianceMheData.pose.covariance.elems[35] = qCovMheTrailer[1];
                     poseWithCovarianceMheOut(poseWithCovarianceMheData);
 
-                    ackermannDriveMheData->steering_angle = qMheTrailer[4];
-                    ackermannDriveMheData->speed = ctrMheTrailer[1];
-                    ackermannDriveMheData->steering_angle_velocity = ctrMheTrailer[0];
+                    ackermannDriveMheData.steering_angle = qMheTrailer[4];
+                    ackermannDriveMheData.speed = ctrMheTrailer[1];
+                    ackermannDriveMheData.steering_angle_velocity = ctrMheTrailer[0];
                     ackermannDriveMheOut(ackermannDriveMheData);
 
-                    perceptionTwistMheData->angular.z = qMheTrailer[1];
-                    perceptionTwistMheData->linear.x = qMheTrailer[2];
-                    perceptionTwistMheData->linear.y = qMheTrailer[3];
+                    perceptionTwistMheData.angular.z = qMheTrailer[1];
+                    perceptionTwistMheData.linear.x = qMheTrailer[2];
+                    perceptionTwistMheData.linear.y = qMheTrailer[3];
                     perceptionTwistMheOut(perceptionTwistMheData);
                 
                 
@@ -466,9 +466,9 @@ int main(int argc, char **argv)
                     auto simFunc = [&](const Vec4& qTrailer, Vec4& dq, const double t)
                     {
                         if(!carParams.moveGuidancePoint)
-                            dq = OneTrailerKinematicsGPRear(carParams, qTrailer, *ackermannDriveData);
+                            dq = OneTrailerKinematicsGPRear(carParams, qTrailer, ackermannDriveData);
                         else
-                            dq = OneTrailerKinematicsGPFront(carParams, qTrailer, *ackermannDriveData);
+                            dq = OneTrailerKinematicsGPFront(carParams, qTrailer, ackermannDriveData);
                     };
                         
                     Vec4 qOneTrailerPred = qOneTrailerEst;
@@ -483,17 +483,17 @@ int main(int argc, char **argv)
                         ROS_INFO("fresh gps pose");
                         estimateEstTrailer(qOneTrailerEst, qTrailer, qOneTrailerPred, mheParams);
                     }
-                    poseWithCovarianceWeightedData->pose.pose.orientation = tf::createQuaternionMsgFromYaw(qOneTrailerEst[1]);
-                    poseWithCovarianceWeightedData->pose.pose.position.x = qOneTrailerEst[2];
-                    poseWithCovarianceWeightedData->pose.pose.position.y = qOneTrailerEst[3];
+                    poseWithCovarianceWeightedData.pose.pose.orientation = tf::createQuaternionMsgFromYaw(qOneTrailerEst[1]);
+                    poseWithCovarianceWeightedData.pose.pose.position.x = qOneTrailerEst[2];
+                    poseWithCovarianceWeightedData.pose.pose.position.y = qOneTrailerEst[3];
                     poseWithCovarianceWeightedOut(poseWithCovarianceWeightedData);
 
-                    articulatedAnglesWeightedData->trailer1 = qOneTrailerPred[0];
+                    articulatedAnglesWeightedData.trailer1 = qOneTrailerPred[0];
                     articulatedAnglesWeightedOut(articulatedAnglesWeightedData);
 
-                    perceptionTwistWeightedData->angular.z = qOneTrailerPred[1];
-                    perceptionTwistWeightedData->linear.x = qOneTrailerPred[2];
-                    perceptionTwistWeightedData->linear.y = qOneTrailerPred[3];
+                    perceptionTwistWeightedData.angular.z = qOneTrailerPred[1];
+                    perceptionTwistWeightedData.linear.x = qOneTrailerPred[2];
+                    perceptionTwistWeightedData.linear.y = qOneTrailerPred[3];
                     perceptionTwistWeightedOut(perceptionTwistWeightedData);
 
                 }
@@ -505,8 +505,6 @@ int main(int argc, char **argv)
         }
         
         t += 1/((Real) mheParams.loopRate);
-        //ROS_INFO_STREAM("t: "<<t<<"");
-        //ROS_INFO_STREAM("I'm spinning");
         ::ros::spinOnce();
         loop_rate.sleep();
 

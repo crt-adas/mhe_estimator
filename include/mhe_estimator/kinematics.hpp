@@ -6,6 +6,7 @@
 #include "ackermann_msgs/AckermannDrive.h"
 #include <tf/tf.h>
 
+
 namespace mhe_estimator
 {
     using namespace ast;
@@ -16,6 +17,7 @@ namespace mhe_estimator
     typedef boost::array<Real, 4> Vec4;
     typedef boost::array<Real, 3> Vec3;
     typedef boost::array<Real, 2> Vec2;
+
 
     struct CarParams
     {
@@ -63,8 +65,8 @@ namespace mhe_estimator
             return lastAngle + dAngle;
     }
     //Kinematics
-    inline Vec3 RDCarKinematicsGPFront(CarParams params, Vec3 q, ackermann_msgs::AckermannDrive& u)
-    {
+    inline Vec3 RDCarKinematicsGPFront(const CarParams& params,const  Vec3& q,const ackermann_msgs::AckermannDrive& u)
+    {   
         Vec3 dq;
         Real vF = u.speed / cos(u.steering_angle);
 
@@ -74,7 +76,7 @@ namespace mhe_estimator
         return dq;
     }
 
-    inline Vec3 RDCarKinematicsGPRear(CarParams params, Vec3 q, ackermann_msgs::AckermannDrive& u)
+    inline Vec3 RDCarKinematicsGPRear(const CarParams& params,const Vec3& q,const ackermann_msgs::AckermannDrive& u)
     {
         Vec3 dq;
         dq[0] = u.speed*(1/params.L)*tan(u.steering_angle);
@@ -83,29 +85,12 @@ namespace mhe_estimator
         return dq;
     }
 
-    inline Vec4 OneTrailerKinematicsGPFront(CarParams params, Vec4 q, ackermann_msgs::AckermannDrive& u, bool brakeOnSingularity = true)
+    inline Vec4 OneTrailerKinematicsGPFront(const CarParams& params,const Vec4& q,const ackermann_msgs::AckermannDrive& u, bool brakeOnSingularity = true)
     {
         
         Vec4 dq;
         Real k1 = (1/params.L1)*tan(q[0] - atan((params.Lh1/params.L)*tan(u.steering_angle)));
         
-        if(params.respectSteeringLimits)
-        {
-            Real triggeringPoint = params.trailer1Limit*0.95;
-            Real weight = (fabs(q[0]) - triggeringPoint)/(params.trailer1Limit - triggeringPoint);
-            if(weight < 0)
-            weight = 0;
-            if(weight > 1)
-                weight = 1;
-
-            Real dBeta1 = u.speed*(sin(q[0])/params.Lh1 - (1 + (params.L1/params.Lh1)*cos(q[0]))*k1);
-            if(weight > 0 && sign(dBeta1) == sign(q[0]))
-                u.speed= (1-weight)*u.speed;
-        }
-
-        if(fabs(k1) > 5000)
-            u.speed = 0;
-
         dq[0] = u.speed * (sin(q[0])/params.Lh1 - (1 + (params.L1/params.Lh1)*cos(q[0]))*k1);
         dq[1] = u.speed * ( -(params.L1/params.Lh1)*cos(q[0])*k1 + sin(q[0])/params.Lh1 );
         dq[2] = u.speed * cos(q[1]) * ( params.L1*sin(q[0])*k1 + cos(q[0]) );
@@ -113,27 +98,11 @@ namespace mhe_estimator
         return dq;
     }
 
-    inline Vec4 OneTrailerKinematicsGPRear(CarParams params, Vec4 q, ackermann_msgs::AckermannDrive& u, bool brakeOnSingularity = true)
+    inline Vec4 OneTrailerKinematicsGPRear(const CarParams& params,const Vec4& q,const ackermann_msgs::AckermannDrive& u, bool brakeOnSingularity = true)
     {
         Vec4 dq;
         Real k1 = (1/params.L1)*tan(q[0] - atan((params.Lh1/params.L)*tan(u.steering_angle)));
 
-        if(params.respectSteeringLimits)
-        {
-            Real triggeringPoint = params.trailer1Limit*0.95;
-            Real weight = (fabs(q[0]) - triggeringPoint)/(params.trailer1Limit - triggeringPoint);
-            if(weight < 0)
-            weight = 0;
-            if(weight > 1)
-                weight = 1;
-
-            Real dBeta1 = u.speed*(sin(q[0])/params.Lh1 - (1 + (params.L1/params.Lh1)*cos(q[0]))*k1);
-            if(weight > 0 && sign(dBeta1) == sign(q[0]))
-                u.speed = (1-weight)*u.speed;
-        }
-
-        if(fabs(k1) > 5000)
-            u.speed = 0;
 
         dq[0] = u.speed * (sin(q[0])/params.Lh1 - (1 + (params.L1/params.Lh1)*cos(q[0]))*k1);
         dq[1] = u.speed*k1;
