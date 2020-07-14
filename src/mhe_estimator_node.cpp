@@ -161,7 +161,7 @@ int main(int argc, char **argv)
     auto poseWithCovarianceWeightedOut = nh.Output<geometry_msgs::PoseWithCovarianceStamped>("mhe_node/weighted_estimated/pose_with_covariance");
     geometry_msgs::PoseWithCovarianceStamped poseWithCovarianceWeightedData;
 
-    auto ackermannDriveIn = nh.Input<ackermann_msgs::AckermannDrive>("mhe_node/can_data/ackermann_drive");
+    auto ackermannDriveOut = nh.Output<ackermann_msgs::AckermannDrive>("mhe_node/can_data/ackermann_drive");
     ackermann_msgs::AckermannDrive ackermannDriveData;
 
     auto ackermannDriveMheOut = nh.Output<ackermann_msgs::AckermannDrive>("mhe_node/mhe_estimated/ackermann_drive");
@@ -516,6 +516,7 @@ int main(int argc, char **argv)
             }
             perceptionTwistOut(perceptionTwistData);
             articulatedAnglesOut(articulatedAnglesData);
+            ackermannDriveOut(ackermannDriveData);
         }
         
         t += 1/((Real) mheParams.loopRate);
