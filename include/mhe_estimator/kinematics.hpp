@@ -90,7 +90,6 @@ namespace mhe_estimator
         
         Vec4 dq;
         Real k1 = (1/params.L1)*tan(q[0] - atan((params.Lh1/params.L)*tan(u.steering_angle)));
-        
         dq[0] = u.speed * (sin(q[0])/params.Lh1 - (1 + (params.L1/params.Lh1)*cos(q[0]))*k1);
         dq[1] = u.speed * ( -(params.L1/params.Lh1)*cos(q[0])*k1 + sin(q[0])/params.Lh1 );
         dq[2] = u.speed * cos(q[1]) * ( params.L1*sin(q[0])*k1 + cos(q[0]) );
@@ -130,76 +129,112 @@ namespace mhe_estimator
 
         paramName = "/mhe_estimator/mheParam/mheActive";
         singleParamIn(mheParams.mheActive,paramName,nh);
+
         paramName = "/mhe_estimator/mheParam/WeightedActive";
         singleParamIn(mheParams.WeightedActive,paramName,nh);
+
         paramName = "/mhe_estimator/mheParam/windowLength";
         singleParamIn(mheParams.N_mhe,paramName,nh);
+
         paramName = "/mhe_estimator/mheParam/loopRate";
         singleParamIn(mheParams.loopRate,paramName,nh);
+
         paramName = "/mhe_estimator/mheParam/perceptionGPS";
         singleParamIn(mheParams.perceptionGPS,paramName,nh);
+
         paramName = "/mhe_estimator/mheParam/covarianceFromTopicStamp";
         singleParamIn(mheParams.covarianceFromTopicStamp,paramName,nh);
+
         paramName = "/mhe_estimator/mheParam/noiseVariancePos";
         singleParamIn(mheParams.noiseVariancePos,paramName,nh);
+
         paramName = "/mhe_estimator/mheParam/noiseVarianceTh";
         singleParamIn(mheParams.noiseVarianceTh,paramName,nh);
+
         paramName = "/mhe_estimator/mheParam/noiseVariancesteering";
         singleParamIn(mheParams.noiseVariancesteering,paramName,nh);
+
         paramName = "/mhe_estimator/mheParam/noiseVarianceTrailer1";
         singleParamIn(mheParams.noiseVarianceTrailer1,paramName,nh);
+
         paramName = "/mhe_estimator/mheParam/noiseVarianceTrailer2";
         singleParamIn(mheParams.noiseVarianceTrailer2,paramName,nh);
+
         paramName = "/mhe_estimator/mheParam/noiseVarianceLinearVel";
         singleParamIn(mheParams.noiseVarianceLinearVel,paramName,nh);
+
         paramName = "/mhe_estimator/mheParam/noiseVarianceSteeringVel";
         singleParamIn(mheParams.noiseVarianceSteeringVel,paramName,nh);
-        paramName = "/mhe_estimator/mheParam/windowLength";
+
+        paramName = "/mhe_estimator/mheParam/WeightPos";
         singleParamIn(mheParams.WeightPos,paramName,nh);
+
         paramName = "/mhe_estimator/mheParam/WeightTh";
         singleParamIn(mheParams.WeightTh,paramName,nh);
+
         paramName = "/mhe_estimator/mheParam/WeightSteering";
         singleParamIn(mheParams.WeightSteering,paramName,nh);
+
         paramName = "/mhe_estimator/mheParam/WeightTrailer1";
         singleParamIn(mheParams.WeightTrailer1,paramName,nh);
+
         paramName = "/mhe_estimator/mheParam/WeightTrailer2";
         singleParamIn(mheParams.WeightTrailer2,paramName,nh);
+
         paramName = "/mhe_estimator/carParam/WagonNumbers";
         singleParamIn(carParams.TrailerNumber,paramName,nh);
+
         paramName = "/mhe_estimator/carParam/L";
         singleParamIn(carParams.L,paramName,nh);
+
         paramName = "/mhe_estimator/carParam/L1";
         singleParamIn(carParams.L1,paramName,nh);
+
         paramName = "/mhe_estimator/carParam/Lh1";
         singleParamIn(carParams.Lh1,paramName,nh);
+
         paramName = "/mhe_estimator/carParam/L2";
         singleParamIn(carParams.L2,paramName,nh);
+
         paramName = "/mhe_estimator/carParam/Lh2";
         singleParamIn(carParams.Lh2,paramName,nh);
+
         paramName = "/mhe_estimator/carParam/steeringLimit";
         singleParamIn(carParams.steeringLimit,paramName,nh);
+
         paramName = "/mhe_estimator/carParam/trailer1Limit";
         singleParamIn(carParams.trailer1Limit,paramName,nh);
+
         paramName = "/mhe_estimator/carParam/trailer2Limit";
         singleParamIn(carParams.trailer2Limit,paramName,nh);
+
         paramName = "/mhe_estimator/carParam/LinearVelLimit";
         singleParamIn(carParams.LinearVelLimit,paramName,nh);
+
         paramName = "/mhe_estimator/carParam/SteeringVelLimit";
         singleParamIn(carParams.SteeringVelLimit,paramName,nh);
+
         paramName = "/mhe_estimator/carParam/moveGuidancePoint";
         singleParamIn(carParams.moveGuidancePoint,paramName,nh);
+        
         paramName = "/mhe_estimator/carParam/respectSteeringLimits";
         singleParamIn(carParams.respectSteeringLimits,paramName,nh);
+
         paramName = "/mhe_estimator/carParam/upperTh";
         singleParamIn(carParams.upperTh,paramName,nh);
+
         paramName = "/mhe_estimator/carParam/lowerTh";
         singleParamIn(carParams.lowerTh,paramName,nh);
+
         paramName = "/mhe_estimator/carParam/upperX";
         singleParamIn(carParams.upperX,paramName,nh);
+
         paramName = "/mhe_estimator/carParam/lowerX";
         singleParamIn(carParams.lowerX,paramName,nh);
+
         paramName = "/mhe_estimator/carParam/upperY";
         singleParamIn(carParams.upperY,paramName,nh);
+
         paramName = "/mhe_estimator/carParam/lowerY";
         singleParamIn(carParams.lowerY,paramName,nh);
     

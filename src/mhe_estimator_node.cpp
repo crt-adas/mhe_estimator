@@ -100,7 +100,7 @@ int main(int argc, char **argv)
     Vec2 controlsCovTrailer;     //cov triler == 1 
 
     Vec3 q;
-    Vec4 qTrailer;
+    Vec4 qTrailerLoc;
     Vec3 qCarEst;
     Vec3 qCarFirst;
     Vec4 qOneTrailerFirst;
@@ -143,7 +143,7 @@ int main(int argc, char **argv)
     auto perceptionTwistWeightedOut = nh.Output<geometry_msgs::Twist>("mhe_node/weighted_estimated/twist");
     geometry_msgs::Twist perceptionTwistWeightedData;
 
-    auto articulatedAnglesIn = nh.Input<ArticulatedAngles>("mhe_node/can_data/articulated_angles");
+    auto articulatedAnglesOut = nh.Output<ArticulatedAngles>("mhe_node/can_data/articulated_angles");
     ArticulatedAngles articulatedAnglesData;
 
     auto articulatedAnglesMheOut = nh.Output<ArticulatedAngles>("mhe_node/mhe_estimated/articulated_angles");
@@ -245,18 +245,18 @@ int main(int argc, char **argv)
         lastPerceptionTime = perceptionPose.header.stamp;                           
         bool isPerceptionPoseFresh = timeDiff.toSec() >= 0.01;
 
-        perceptionTwistData.linear.x = perceptionPose.pose.position.x;
-        perceptionTwistData.linear.y = perceptionPose.pose.position.y;
+        perceptionTwistData.linear.x = perceptionPose.pose.position.x - carParams.L*cos(perceptionTh);
+        perceptionTwistData.linear.y = perceptionPose.pose.position.y - carParams.L*sin(perceptionTh);
         perceptionTwistData.angular.z = perceptionTh;
-        
+        articulatedAnglesData.trailer1 = canData.beta1;
         if(perceptionPose.pose.position.x != 0 && perceptionPose.pose.position.y != 0)
         {
             if (carParams.TrailerNumber == 0)
             {
                 
                 //Th base on estimator 
-                qLoc[1] = perceptionPose.pose.position.x;
-                qLoc[2] = perceptionPose.pose.position.y;
+                qLoc[1] = perceptionPose.pose.position.x - carParams.L*cos(perceptionTh);
+                qLoc[2] = perceptionPose.pose.position.y - carParams.L*sin(perceptionTh);
                 qLoc[3] = canData.steeringAngle;
                 
                 if(mheParams.mheActive)
@@ -360,6 +360,7 @@ int main(int argc, char **argv)
                     poseWithCovarianceWeightedData.pose.pose.orientation = tf::createQuaternionMsgFromYaw(qCarEst[0]);
                     poseWithCovarianceWeightedData.pose.pose.position.x = qCarEst[1];
                     poseWithCovarianceWeightedData.pose.pose.position.y = qCarEst[2];
+                    poseWithCovarianceWeightedData.header.stamp = ::ros::Time::now();
                     poseWithCovarianceWeightedOut(poseWithCovarianceWeightedData);
 
                     perceptionTwistWeightedData.angular.z = qCarEst[0];
@@ -372,9 +373,10 @@ int main(int argc, char **argv)
                 
                 qLocTrailer[0] = canData.beta1;
                 //Th base on estimator is different
-                qLocTrailer[2] = perceptionPose.pose.position.x;
-                qLocTrailer[3] = perceptionPose.pose.position.y;
+                qLocTrailer[2] = perceptionPose.pose.position.x - carParams.L*cos(perceptionTh);
+                qLocTrailer[3] = perceptionPose.pose.position.y - carParams.L*sin(perceptionTh);
                 qLocTrailer[4] = canData.steeringAngle;
+                
 
                 if(mheParams.mheActive)
                 {
@@ -456,13 +458,17 @@ int main(int argc, char **argv)
                     perceptionTwistMheData.linear.x = qMheTrailer[2];
                     perceptionTwistMheData.linear.y = qMheTrailer[3];
                     perceptionTwistMheOut(perceptionTwistMheData);
+
+                    articulatedAnglesMheData.trailer1 = qMheTrailer[0];
+                    articulatedAnglesMheOut(articulatedAnglesMheData);
                 
                 
                 }   
                 if(mheParams.WeightedActive)
                 {
+                    
                     qLocTrailer[1] = continuousAngle(perceptionTh, qOneTrailerEst[1]);
-                    qTrailer = {qLocTrailer[0],qLocTrailer[1],qLocTrailer[2],qLocTrailer[3]};
+                    qTrailerLoc = {qLocTrailer[0],qLocTrailer[1],qLocTrailer[2],qLocTrailer[3] };
                     auto simFunc = [&](const Vec4& qTrailer, Vec4& dq, const double t)
                     {
                         if(!carParams.moveGuidancePoint)
@@ -481,20 +487,27 @@ int main(int argc, char **argv)
                     else
                     {
                         ROS_INFO("fresh gps pose");
-                        estimateEstTrailer(qOneTrailerEst, qTrailer, qOneTrailerPred, mheParams);
+                        estimateEstTrailer(qOneTrailerEst, qTrailerLoc, qOneTrailerPred, mheParams);
+                        //betaEst = estParams.weightBeta*betaPred + (1-estParams.weightBeta)*(beta);
                     }
                     poseWithCovarianceWeightedData.pose.pose.orientation = tf::createQuaternionMsgFromYaw(qOneTrailerEst[1]);
                     poseWithCovarianceWeightedData.pose.pose.position.x = qOneTrailerEst[2];
                     poseWithCovarianceWeightedData.pose.pose.position.y = qOneTrailerEst[3];
+                    poseWithCovarianceWeightedData.header.stamp = ::ros::Time::now();
                     poseWithCovarianceWeightedOut(poseWithCovarianceWeightedData);
+                    
 
-                    articulatedAnglesWeightedData.trailer1 = qOneTrailerPred[0];
+                    articulatedAnglesWeightedData.trailer1 = qOneTrailerEst[0];
                     articulatedAnglesWeightedOut(articulatedAnglesWeightedData);
 
-                    perceptionTwistWeightedData.angular.z = qOneTrailerPred[1];
-                    perceptionTwistWeightedData.linear.x = qOneTrailerPred[2];
-                    perceptionTwistWeightedData.linear.y = qOneTrailerPred[3];
+                    perceptionTwistWeightedData.angular.z = qOneTrailerEst[1];
+                    perceptionTwistWeightedData.linear.x = qOneTrailerEst[2];
+                    perceptionTwistWeightedData.linear.y = qOneTrailerEst[3];
                     perceptionTwistWeightedOut(perceptionTwistWeightedData);
+
+
+
+                    
 
                 }
             }else
@@ -502,6 +515,7 @@ int main(int argc, char **argv)
                 ROS_ERROR(" Trailer Number out of range, accepted values: 0, 1");
             }
             perceptionTwistOut(perceptionTwistData);
+            articulatedAnglesOut(articulatedAnglesData);
         }
         
         t += 1/((Real) mheParams.loopRate);
