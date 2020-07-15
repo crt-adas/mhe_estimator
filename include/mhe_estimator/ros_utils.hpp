@@ -102,7 +102,7 @@ namespace ast { namespace ros
   {
   ::ros::Publisher pub;
   public:
-    TopicOut(NodeHandle& nh, std::string topicName) : pub(nh.advertise<T>(topicName, 10))
+    TopicOut(NodeHandle& nh, std::string topicName) : pub(nh.advertise<T>(topicName, 50))
     {
     }
 
