@@ -1,20 +1,19 @@
 clear all;
 close all;
 clc;
-bag = rosbag('mheBag11.bag');
+bag = rosbag('mhe1.bag');
 
 perception = select(bag,'Topic','/mhe_node/perception/twist');
 mhe_estimated = select(bag,'Topic','/mhe_node/mhe_estimated/twist');
 weighted_estimated = select(bag,'Topic','/mhe_node/weighted_estimated/twist');
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 time = select(bag,'Topic','/mhe_node/weighted_estimated/pose_with_covariance');
 timeMsgStructs = readMessages(time,'DataFormat','struct');
 tS = cellfun(@(m) double(m.Header.Stamp.Sec),timeMsgStructs);
 tN = cellfun(@(m) double(m.Header.Stamp.Nsec),timeMsgStructs);
 secondtime = double(tS)+double(tN)*10^-9;
 t = secondtime - secondtime(1);
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 
 perceptionMsgStructs = readMessages(perception,'DataFormat','struct');
 xPerception = cellfun(@(m) double(m.Linear.X),perceptionMsgStructs);
@@ -51,7 +50,7 @@ set(AxesH, 'Position', [InSet(1:2), 1-InSet(1)-InSet(3), 1-InSet(2)-InSet(4)])
 %saveas(gcf,'plot.png')
 hold on
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 thPerception = cellfun(@(m) double(m.Angular.Z),perceptionMsgStructs);
 thMhe = cellfun(@(m) double(m.Angular.Z),MheMsgStructs);
 thWeighted = cellfun(@(m) double(m.Angular.Z),WeightedMsgStructs);
@@ -82,7 +81,7 @@ set(AxesH, 'Position', [InSet(1:2), 1-InSet(1)-InSet(3), 1-InSet(2)-InSet(4)])
 %saveas(gcf,'plot.eps')
 %saveas(gcf,'plot.png')
 hold on
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 canB = select(bag,'Topic','/mhe_node/can_data/articulated_angles');
 mhe_estimatedB = select(bag,'Topic','/mhe_node/mhe_estimated/articulated_angles');
 weighted_estimatedB = select(bag,'Topic','/mhe_node/weighted_estimated/articulated_angles');

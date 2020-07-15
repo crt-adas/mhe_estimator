@@ -381,8 +381,8 @@ int main(int argc, char **argv)
                         //q5wCovTrailer[N_mhe - sampleNumber] = qCovTrailer;
                         //q5wLocTrailer[N_mhe - sampleNumber] = qLocTrailer;
                     }
-                    q5wCovTrailer[N_mhe - 25] = qCovTrailer;
-                    q5wLocTrailer[N_mhe - 25] = qLocTrailer;
+                    q5wCovTrailer[N_mhe] = qCovTrailer;
+                    q5wLocTrailer[N_mhe] = qLocTrailer;
 
                     q5wLocTrailer[0] = qEstFirstSampleTrailer;  
                     control2wTrailer[N_mhe-1] = controlsTrailer; 
