@@ -1,6 +1,12 @@
 cmake_minimum_required(VERSION 1.0.0)
 project(mhe_estimator)
 
+set(CMAKE_BUILD_TYPE Release)
+set(CMAKE_CXX_STANDARD 14)
+
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror=return-type -O2")
+
+
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH};${PROJECT_SOURCE_DIR}/cmake)
 
 find_package(catkin REQUIRED COMPONENTS roscpp rospy std_msgs geometry_msgs ackermann_msgs std_srvs message_generation tf)
