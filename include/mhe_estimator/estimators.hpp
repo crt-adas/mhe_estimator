@@ -90,14 +90,27 @@ namespace mhe_estimator
         
         SXDict nlp = {{"f", obj}, {"x", OPT_variables}, {"g", g}, {"p", P}};
         Dict opts;
-        opts["ipopt.max_iter"] = 2000;
-        opts["ipopt.print_level"] = 0;
-        opts["print_time"] = false;
-        opts["ipopt.acceptable_tol"] = 1e-6;
-        opts["ipopt.acceptable_obj_change_tol"] = 1e-4;
-        //opts["ipopt.print_timing_statistics"] = "no";
-        //opts["ipopt.print_info_string"] = "no";
-        solver = nlpsol("nlpsol", "ipopt", nlp, opts);
+        opts["qpsol"] = "qpoases";
+//        opts["max_iter"] =2;
+
+        opts["print_iteration"] = true;
+        Dict qopts;
+        qopts["sparse"]=true;
+
+        opts["qpsol_options"] = qopts;
+
+
+//                opts["ipopt.max_iter"] = 100;
+//        opts["ipopt.print_level"] = 0;
+//        opts["print_time"] = false;
+//        opts["ipopt.acceptable_tol"] = 1e-6;
+//        opts["ipopt.acceptable_obj_change_tol"] = 1e-4;
+//        opts["ipopt.print_timing_statistics"] = "no";
+//        opts["ipopt.print_info_string"] = "no";
+
+
+
+        solver = nlpsol("nlpsol", "sqpmethod", nlp, opts);
         
     }
 
@@ -223,13 +236,37 @@ namespace mhe_estimator
         
         SXDict nlp = {{"f", obj}, {"x", OPT_variables}, {"g", g}, {"p", P}};
         Dict opts;
-        opts["ipopt.max_iter"] = 2000;
+
+//        opts["qpsol"] = "gurobi";
+//        opts["hessian_approximation"] = "limited-memory";
+
+//        opts["max_iter"] =10;
+
+//        opts["print_iteration"] = true;
+//        opts["warn_initial_bounds"] = true;
+//        Dict qopts;
+//       qopts["gurobi.Threads"]=4;
+//       qopts["verbose"]=false;
+
+////        qopts["sparse"]=true;
+////         qopts["printLevel"]="low";
+//        qopts["linsol_plugin"]="gurobi";
+
+//        opts["qpsol_options"] = qopts;
+//       opts["qpsol_options"] = qopts;
+
+
+
+
+
+        opts["ipopt.max_iter"] = 2;
         opts["ipopt.print_level"] = 0;
         opts["print_time"] = false;
-        opts["ipopt.acceptable_tol"] = 1e-8;
-        opts["ipopt.acceptable_obj_change_tol"] = 1e-6;
-        //opts["ipopt.print_timing_statistics"] = "no";
-        //opts["ipopt.print_info_string"] = "no";
+        opts["ipopt.acceptable_tol"] = 1e-6;
+        opts["ipopt.acceptable_obj_change_tol"] = 1e-4;
+        opts["ipopt.print_timing_statistics"] = "no";
+        opts["ipopt.print_info_string"] = "no";
+
         solver = nlpsol("nlpsol", "ipopt", nlp, opts);
     }
   
@@ -242,7 +279,7 @@ namespace mhe_estimator
     {
         unsigned int n_states = 4; unsigned int n_controls = 2;
         std::map<std::string, DM> arg, res;
-        arg["lbg"] = SX::zeros(n_states*A); //size = n_state * N_Mhe 
+        arg["lbg"] = SX::zeros(n_states*A); //size = n_state * N_Mhe
         arg["ubg"] = SX::zeros(n_states*A);
         
         std::vector<double> lbx((n_controls*A)+(n_states*B), 0.0);
@@ -395,8 +432,16 @@ namespace mhe_estimator
         arg["p"] = argp;
         arg["x0"] = argx0Trailer; //Comes as parameter
 
-        res = solver(arg); // solve MHE
-        argx0Trailer = res.at("x");
+        try
+        {
+          res = solver(arg); // solve MHE
+          argx0Trailer = res.at("x");
+        } catch (casadi::CasadiException& ex)
+        {
+          ROS_ERROR_STREAM(ex.what());
+
+        }
+
 
     
     }

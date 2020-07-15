@@ -16,7 +16,7 @@
 #include "std_srvs/Empty.h"
 
 //--------------------------| Moving Horizen Window Length |---------------------------// 
-const long unsigned int N_mhe = 50;
+const long unsigned int N_mhe = 300;
 //-------------------------------------------------------------------------------------// 
 
 int main(int argc, char **argv)
@@ -185,11 +185,12 @@ int main(int argc, char **argv)
     
     ROS_INFO_STREAM("Estimator loop rate: "<< mheParams.loopRate <<"");
     Real t = 0;
+    bool firstPoseMeasured = false;
     ::ros::Rate loop_rate(mheParams.loopRate);
     while(::ros::ok())
     {
         
-        
+        auto now = ::ros::Time::now();
      
         *canData = canDataIn(); 
         ackermannDriveData.speed = canData->tachoVelocity;
@@ -249,9 +250,28 @@ int main(int argc, char **argv)
                     }
                     if(sampleNumber >=0  && sampleNumber < N_mhe)
                     {
+                        if(!firstPoseMeasured)
+                        {
+                          for(int i = 0; i < N_mhe; ++i)
+                          {
+                            q4wCov[i] = qCov;
+                            q4wLoc[i] = qLoc;
+                          }
+                          firstPoseMeasured = true;
+                          ROS_INFO("First pose received. Starting.");
+                        }
+
                         ROS_INFO_STREAM("SampleIndex: "<<sampleNumber <<" ");
                         q4wCov[N_mhe - sampleNumber] = qCov;
                         q4wLoc[N_mhe - sampleNumber] = qLoc;
+                    }
+                    else
+                    {
+                      qCov[0] = 0.0;
+                      qCov[1] = 0.0;
+                      qCov[2] = 0.0;
+                      qCov[3] = 1/mheParams.noiseVariancesteering;
+                      q4wLoc[N_mhe] = qLoc;
                     }
 
                     q4wLoc[0] = qEstFirstSample; 
@@ -321,7 +341,7 @@ int main(int argc, char **argv)
                     }
                     else
                     {
-                        ROS_INFO("fresh gps pose");
+                        //ROS_INFO("fresh gps pose");
                         estimateEst(qCarEst, q, qCarPred ,mheParams);  
                     }
                     poseWithCovarianceWeightedData.pose.pose.orientation = tf::createQuaternionMsgFromYaw(qCarEst[0]);
@@ -377,15 +397,56 @@ int main(int argc, char **argv)
                     }
                     if(sampleNumber >=0  && sampleNumber < N_mhe)
                     {
-                        ROS_INFO_STREAM("SampleIndex: "<<sampleNumber <<" ");
-                        //q5wCovTrailer[N_mhe - sampleNumber] = qCovTrailer;
-                        //q5wLocTrailer[N_mhe - sampleNumber] = qLocTrailer;
-                    }
-                    q5wCovTrailer[N_mhe] = qCovTrailer;
-                    q5wLocTrailer[N_mhe] = qLocTrailer;
+                        if(!firstPoseMeasured)
+                        {
+                          ROS_INFO_STREAM("First config "<<qLocTrailer[0] <<" "<< qLocTrailer[1]<<" "<< qLocTrailer[2]<<" "<<qLocTrailer[3]<<" "<<qLocTrailer[4]);
+                          for(size_t i = 0; i < q5wCovTrailer.size(); ++i)
+                          {                            
+                            q5wCovTrailer[i] = qCovTrailer;
+                            q5wLocTrailer[i] = qLocTrailer;
+                          }
 
-                    q5wLocTrailer[0] = qEstFirstSampleTrailer;  
-                    control2wTrailer[N_mhe-1] = controlsTrailer; 
+                          qEstFirstSampleTrailer = qLocTrailer;
+
+                          for(size_t i = 0; i < control2wTrailer.size(); ++i)
+                          {
+                            controlsTrailer[0] = 0.0;
+                            controlsTrailer[1] = 0.0;
+                            control2wCovTrailer[i] = controlsTrailer;
+                            control2wCovTrailer[i] = controlsCovTrailer;
+                          }
+
+                          ROS_INFO("First pose received. Starting.");
+                          firstPoseMeasured = true;
+                        }
+
+
+                        //ROS_INFO_STREAM("SampleIndex: "<<sampleNumber <<" ");
+                        q5wCovTrailer[N_mhe - sampleNumber] = qCovTrailer;
+                        q5wLocTrailer[N_mhe - sampleNumber] = qLocTrailer;
+                    }
+                    else
+                    {
+                      qCovTrailer[0] = 0.0;
+                      qCovTrailer[1] = 0.0;
+                      qCovTrailer[2] = 0.0;
+                      qCovTrailer[3] = 0.0;
+                      qCovTrailer[4] = 1/mheParams.noiseVariancesteering;
+
+                      q5wLocTrailer[N_mhe] = qLocTrailer;
+                      q5wCovTrailer[N_mhe] = qCovTrailer;
+                    }
+
+                    q5wLocTrailer[0] = qEstFirstSampleTrailer;
+                    //added cov here though the setup could be better
+                    qCovTrailer[0] = 5/mheParams.noiseVarianceTrailer1;
+                    qCovTrailer[1] = 5/mheParams.noiseVarianceTh;
+                    qCovTrailer[2] = 5/mheParams.noiseVariancePos;
+                    qCovTrailer[3] = 5/mheParams.noiseVariancePos;
+                    qCovTrailer[4] = 5/mheParams.noiseVariancesteering;
+                    q5wCovTrailer[0] = qCovTrailer;
+
+                    control2wTrailer[N_mhe-1] = controlsTrailer;
                     control2wCovTrailer[N_mhe-1] = controlsCovTrailer;
                 
                     estimateMheTrailer(argx0Trailer, q5wLocTrailer, control2wTrailer, q5wCovTrailer, control2wCovTrailer, carParams, mheParams,solverTrailer);
@@ -494,6 +555,9 @@ int main(int argc, char **argv)
             
         }
         
+        auto loopTime =  ::ros::Time::now() - now;
+        ROS_INFO_STREAM("loop time" << loopTime.toSec());
+
         t += 1/((Real) mheParams.loopRate);
         ::ros::spinOnce();
         loop_rate.sleep();
