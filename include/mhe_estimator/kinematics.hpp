@@ -31,7 +31,7 @@ namespace mhe_estimator
     struct MheParams
     {
         bool mheActive, WeightedActive, covarianceFromTopicStamp, perceptionGPS;
-        Real N_mhe, loopRate;   
+        Real loopRate;   
         Real noiseVariancePos, noiseVarianceTh, noiseVariancesteering, noiseVarianceTrailer1;
         Real noiseVarianceTrailer2, noiseVarianceLinearVel, noiseVarianceSteeringVel;
         Real WeightPos, WeightTh, WeightSteering, WeightTrailer1, WeightTrailer2;
@@ -132,9 +132,6 @@ namespace mhe_estimator
 
         paramName = "/mhe_estimator/mheParam/WeightedActive";
         singleParamIn(mheParams.WeightedActive,paramName,nh);
-
-        paramName = "/mhe_estimator/mheParam/windowLength";
-        singleParamIn(mheParams.N_mhe,paramName,nh);
 
         paramName = "/mhe_estimator/mheParam/loopRate";
         singleParamIn(mheParams.loopRate,paramName,nh);

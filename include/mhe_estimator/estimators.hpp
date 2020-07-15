@@ -16,11 +16,11 @@ namespace mhe_estimator
 {
     using namespace casadi;
 
-    void mheSetupCar(casadi::Function& solver, const mhe_estimator::CarParams& params, const mhe_estimator::MheParams& mheParams)
+    void mheSetupCar(casadi::Function& solver, const mhe_estimator::CarParams& params, const mhe_estimator::MheParams& mheParams,const long unsigned int N_mhe)
     {
         
-        double A = mheParams.N_mhe;
-        double B = mheParams.N_mhe+1;
+        double A = N_mhe;
+        double B = N_mhe+1;
         SX theta = SX::sym("theta"); SX x = SX::sym("x"); SX y = SX::sym("y"); SX beta0 = SX::sym("beta0");  
         SX u1 = SX::sym("u1"); SX u2 = SX::sym("u2"); 
 
@@ -101,10 +101,10 @@ namespace mhe_estimator
         
     }
 
-    void mheSetupTrailer(casadi::Function& solver,const mhe_estimator::CarParams& params,const mhe_estimator::MheParams& mheParams)
+    void mheSetupTrailer(casadi::Function& solver,const mhe_estimator::CarParams& params,const mhe_estimator::MheParams& mheParams,const long unsigned int N_mhe)
     {
-        double A = mheParams.N_mhe;
-        double B = mheParams.N_mhe+1;
+        double A = N_mhe;
+        double B = N_mhe+1;
         SX beta1 = SX::sym("beta1"); SX theta = SX::sym("theta"); SX x = SX::sym("x"); SX y = SX::sym("y"); SX beta0 = SX::sym("beta0"); 
         SX u1 = SX::sym("u1"); SX u2 = SX::sym("u2"); 
 
@@ -303,7 +303,7 @@ namespace mhe_estimator
         for(int j = 0; j < A; j++) //control cov matrix
         {
             boost::array<double, 2> ctrCov = control2wCov[j];
-            //argp(0,B+A+B+j) = 0.0;   //we do not have measured control dbeta 
+            argp(0,B+A+B+j) = 0.0;   //we do not have measured control dbeta 
             argp(1,B+A+B+j) = ctrCov[1];
         }
 
@@ -316,7 +316,7 @@ namespace mhe_estimator
     }
 
     template <class T, class T2, long unsigned int A, long unsigned int B>
-    void estimateMheTrailer(casadi::DM& argx0Trailer, const Vec5& qMheTrailer,const Vec2& ctrMheTrailer,const boost::array<T, B>& q5wLocTrailer,
+    void estimateMheTrailer(casadi::DM& argx0Trailer,const boost::array<T, B>& q5wLocTrailer,
         const boost::array<T2, A>& control2wTrailer,const boost::array<T, B>& q5wCovTrailer,
         const boost::array<T2, A>& control2wCovTrailer,const mhe_estimator::CarParams& carParams,
         const mhe_estimator::MheParams& mheParams,const casadi::Function& solver)  //check the ref and const
@@ -345,43 +345,15 @@ namespace mhe_estimator
             ubx[i+4] = carParams.steeringLimit; 
         }
 
-        double u2limitUp = carParams.LinearVelLimit;
-        double u2limitDown = -carParams.LinearVelLimit;
-       
-        // if betaLimit then bounds of u2 = 0
-        double k1real = (1/carParams.L1)*tan(qMheTrailer[0] - atan((carParams.Lh1/carParams.L)*tan(qMheTrailer[4])));
-        if(carParams.respectSteeringLimits)
-        {
-            double triggeringPoint = carParams.trailer1Limit*0.95;
-            double weight = (fabs(qMheTrailer[0]) - triggeringPoint)/(carParams.trailer1Limit - triggeringPoint);
-            if(weight < 0)
-                weight = 0;
-            if(weight > 1)
-                weight = 1;
-
-            double dBeta1 = ctrMheTrailer[1]*(sin(qMheTrailer[0])/carParams.Lh1 - (1 + (carParams.L1/carParams.Lh1)*cos(qMheTrailer[0]))*k1real);
-            if(weight > 0 && mhe_estimator::sign(dBeta1) == mhe_estimator::sign(qMheTrailer[0]))
-            {
-                u2limitDown = 0.0;
-                u2limitUp = 0.0;
-            }  
-        }
-
-        if(fabs(k1real) > 5000)
-        {
-            u2limitDown = 0.0;
-            u2limitUp = 0.0;
-        }
-            
         ////////////////////////////////////////////
 
         for(int i = (n_states*B); i < ((n_controls*A)+(n_states*B)); i += n_controls) 
         {
             lbx[i] = -carParams.SteeringVelLimit;    //dbeta lower bound
-            lbx[i+1] = u2limitDown;  //linear.vel lower bound
+            lbx[i+1] = -carParams.LinearVelLimit;  //linear.vel lower bound
 
             ubx[i] = carParams.SteeringVelLimit;  //dbeta upper bound
-            ubx[i+1] = u2limitUp;  //linear.vel upper bound  
+            ubx[i+1] = carParams.LinearVelLimit;  //linear.vel upper bound  
         }
         arg["lbx"] = lbx;
         arg["ubx"] = ubx;
@@ -415,7 +387,7 @@ namespace mhe_estimator
         for(int j = 0; j < A; j++) //control cov matrix
         {
             boost::array<double, 2> ctrCov = control2wCovTrailer[j];
-            //argp(0,B+A+B+j) = 0.0;   //we do not have measured control dbeta 
+            argp(0,B+A+B+j) = 0.0;   //we do not have measured control dbeta 
             argp(1,B+A+B+j) = ctrCov[1];
         }
 
