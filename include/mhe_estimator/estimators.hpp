@@ -90,8 +90,9 @@ namespace mhe_estimator
         
         SXDict nlp = {{"f", obj}, {"x", OPT_variables}, {"g", g}, {"p", P}};
         Dict opts;
+        /*
         opts["qpsol"] = "qpoases";
-//        opts["max_iter"] =2;
+//      opts["max_iter"] =2;
 
         opts["print_iteration"] = true;
         Dict qopts;
@@ -99,18 +100,19 @@ namespace mhe_estimator
 
         opts["qpsol_options"] = qopts;
 
+        */
+        opts["ipopt.max_iter"] = 2000;
+        opts["ipopt.print_level"] = 0;
+        opts["print_time"] = false;
+        opts["ipopt.acceptable_tol"] = 1e-6;
+        opts["ipopt.acceptable_obj_change_tol"] = 1e-4;
+        opts["ipopt.print_timing_statistics"] = "no";
+        opts["ipopt.print_info_string"] = "no";
 
-//                opts["ipopt.max_iter"] = 100;
-//        opts["ipopt.print_level"] = 0;
-//        opts["print_time"] = false;
-//        opts["ipopt.acceptable_tol"] = 1e-6;
-//        opts["ipopt.acceptable_obj_change_tol"] = 1e-4;
-//        opts["ipopt.print_timing_statistics"] = "no";
-//        opts["ipopt.print_info_string"] = "no";
+        solver = nlpsol("nlpsol", "ipopt", nlp, opts);
 
 
-
-        solver = nlpsol("nlpsol", "sqpmethod", nlp, opts);
+        //solver = nlpsol("nlpsol", "sqpmethod", nlp, opts);
         
     }
 
@@ -259,7 +261,7 @@ namespace mhe_estimator
 
 
 
-        opts["ipopt.max_iter"] = 2;
+        opts["ipopt.max_iter"] = 2000;
         opts["ipopt.print_level"] = 0;
         opts["print_time"] = false;
         opts["ipopt.acceptable_tol"] = 1e-6;

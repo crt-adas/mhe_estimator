@@ -16,7 +16,7 @@
 #include "std_srvs/Empty.h"
 
 //--------------------------| Moving Horizen Window Length |---------------------------// 
-const long unsigned int N_mhe = 300;
+const long unsigned int N_mhe = 60;
 //-------------------------------------------------------------------------------------// 
 
 int main(int argc, char **argv)
@@ -67,14 +67,12 @@ int main(int argc, char **argv)
     Vec3 q;
     Vec4 qTrailerLoc;
     Vec3 qCarEst;
-    Vec3 qCarFirst;
-    Vec4 qOneTrailerFirst;
     Vec4 qCarEstMhe;
     Vec2 ctrlEstMhe;
     Vec5 qMheTrailer;
     Vec2 ctrMheTrailer;
     Vec4 qOneTrailerEst;
-    Vec4 qOneTrailerLoc;
+    int sampleNo;
     /*---------------------------------------------*/
 
     /*----------------| Get Casadi Solver  |----------------*/
@@ -138,51 +136,6 @@ int main(int argc, char **argv)
     //ackermann_msgs::AckermannDrive ackermannDriveWeightedData;
     /*------------------------------------------------------------------------------------------*/
 
-    if (carParams.TrailerNumber == 0)
-    {
-        ROS_INFO("mhe reset");
-
-        //qCarFirst[0] = qLocMhe[0]; //we can't just assign, vec3!=vec4
-        //qCarFirst[1] = qLocMhe[1];
-        //qCarFirst[2] = qLocMhe[2];
-        //zero the mhe windows
-        controls[0] = 0;
-        controls[1] = 0;
-        for(int i=0; i < N_mhe; i++) 
-        {
-            control2w[i] = controls;
-        }
-        for(int i=0; i < (N_mhe + 1); i++) 
-        {
-            //q4wLoc[i] = qLocMhe;
-            q4wCov[i] = {0.0, 0.0, 0.0, 0.0};
-        }
-    }else if (carParams.TrailerNumber == 1)
-    {
-        ROS_INFO("mhe reset");
-        
-        //qOneTrailerFirst[0] = qLocMheTrailer[0];
-        //qOneTrailerFirst[1] = qLocMheTrailer[1];
-        //qOneTrailerFirst[2] = qLocMheTrailer[2];
-        //qOneTrailerFirst[3] = qLocMheTrailer[3];
-        //zero the mhe windows
-        controlsTrailer[0] = 0;
-        controlsTrailer[1] = 0;
-        for(int i=0; i < N_mhe; i++) 
-        {
-            control2wTrailer[i] = controlsTrailer;
-        }
-        for(int i=0; i < (N_mhe + 1); i++) 
-        {
-            //q5wLocTrailer[i] = qLocMheTrailer;
-            q5wCovTrailer[i] = {0.0, 0.0, 0.0, 0.0, 0.0};
-        }
-    }else
-    {
-        ROS_ERROR(" Trailer Number out of range, accepted values: 0, 1");
-    }
-
-    
     ROS_INFO_STREAM("Estimator loop rate: "<< mheParams.loopRate <<"");
     Real t = 0;
     bool firstPoseMeasured = false;
@@ -216,7 +169,7 @@ int main(int argc, char **argv)
         if(perceptionPose->pose.position.x != 0 && perceptionPose->pose.position.y != 0)
         {
             if (carParams.TrailerNumber == 0)
-            {
+            { 
                 
                 //Th base on estimator 
                 qLoc[1] = perceptionPose->pose.position.x - carParams.L*cos(perceptionTh);
@@ -225,23 +178,24 @@ int main(int argc, char **argv)
                 
                 if(mheParams.mheActive)
                 {
-                    qLoc[0] = continuousAngle(perceptionTh, qCarEstMhe[0]);
-                    controls[0] = 0;  //no measured value for dbeta
-                    controls[1] = canData->tachoVelocity; //uCar.longitudinalVelocity + noiseArray[4];
+                    controlsCov[0] = 0;
+                    controlsCov[1] = 1/mheParams.noiseVarianceLinearVel;
 
                     qCov[0] = 1/mheParams.noiseVarianceTh;         
                     qCov[1] = 1/mheParams.noiseVariancePos;
                     qCov[2] = 1/mheParams.noiseVariancePos;
                     qCov[3] = 1/mheParams.noiseVariancesteering;
-                    controlsCov[0] = 0;
-                    controlsCov[0] = 1/mheParams.noiseVarianceLinearVel;
+                    
+                    qLoc[0] = continuousAngle(perceptionTh, qCarEstMhe[0]);
+                    controls[0] = 0;  //no measured value for dbeta
+                    controls[1] = canData->tachoVelocity; //uCar.longitudinalVelocity + noiseArray[4];
 
                     std::rotate(q4wLoc.begin(), q4wLoc.begin()+1, q4wLoc.end());
                     std::rotate(control2w.begin(), control2w.begin()+1, control2w.end());
                     std::rotate(q4wCov.begin(), q4wCov.begin()+1, q4wCov.end());
                     std::rotate(control2wCov.begin(), control2wCov.begin()+1, control2wCov.end());
             
-                    q4wCov[N_mhe] = {0.0, 0.0, 0.0, 0.0};
+                    
                     ::ros::Duration sampleDiff = ::ros::Time::now() - perceptionPose->header.stamp;
                     int sampleNumber = floor(sampleDiff.toSec()/(1.0/mheParams.loopRate));
                     if (sampleNumber > N_mhe)
@@ -252,31 +206,55 @@ int main(int argc, char **argv)
                     {
                         if(!firstPoseMeasured)
                         {
-                          for(int i = 0; i < N_mhe; ++i)
+                          ROS_INFO_STREAM("First config "<<qLoc[0] <<" "<< qLoc[1]<<" "<< qLoc[2]<<" "<<qLoc[3]<<" ");
+                          for(size_t i = 0; i < q4wCov.size(); ++i)
                           {
                             q4wCov[i] = qCov;
                             q4wLoc[i] = qLoc;
                           }
-                          firstPoseMeasured = true;
+                          qEstFirstSample = qLoc;
+
+                          for(size_t i = 0; i < control2w.size(); ++i)
+                          {
+                              controls[0] = 0.0;
+                              controls[1] = 0.0;
+                              control2w[i] = controls;
+                              control2wCov[i] = controlsCov;
+                          }
+                          sampleNo = sampleNumber;
+                          ROS_INFO_STREAM("feeding at: N_mhe - "<< sampleNo << " index");
                           ROS_INFO("First pose received. Starting.");
+                          firstPoseMeasured = true;
                         }
 
-                        ROS_INFO_STREAM("SampleIndex: "<<sampleNumber <<" ");
-                        q4wCov[N_mhe - sampleNumber] = qCov;
-                        q4wLoc[N_mhe - sampleNumber] = qLoc;
-                    }
-                    else
-                    {
-                      qCov[0] = 0.0;
-                      qCov[1] = 0.0;
-                      qCov[2] = 0.0;
-                      qCov[3] = 1/mheParams.noiseVariancesteering;
-                      q4wLoc[N_mhe] = qLoc;
-                    }
+                        q4wCov[N_mhe] = {0.0, 0.0, 0.0, 0.0};
+                        //-----   canData to window -------//
+                        q4wCov[N_mhe][3] = 1/mheParams.noiseVariancesteering;    
+                        q4wLoc[N_mhe][3] = qLoc[3];
 
+                        control2w[N_mhe-1] = controls;
+                        control2wCov[N_mhe-1] = controlsCov;
+                        //---------------------------------//
+                        
+                        // ---------perception to window -------//
+                        q4wCov[N_mhe - sampleNo][0] = 1/mheParams.noiseVarianceTh;
+                        q4wCov[N_mhe - sampleNo][1] = 1/mheParams.noiseVariancePos;
+                        q4wCov[N_mhe - sampleNo][2] = 1/mheParams.noiseVariancePos;
+
+                        q4wLoc[N_mhe - sampleNo][0] = qLoc[0];
+                        q4wLoc[N_mhe - sampleNo][1] = qLoc[1];
+                        q4wLoc[N_mhe - sampleNo][2] = qLoc[2];
+                        //---------------------------------//
+                      
+                    }
+                   
                     q4wLoc[0] = qEstFirstSample; 
-                    control2w[N_mhe-1] = controls; //control window is one element shorter
-                    control2wCov[N_mhe-1] = controlsCov;
+                    qCov[0] = 5/mheParams.noiseVarianceTh;
+                    qCov[1] = 5/mheParams.noiseVariancePos;
+                    qCov[2] = 5/mheParams.noiseVariancePos;
+                    qCov[3] = 5/mheParams.noiseVariancesteering;
+                    q4wCov[0] = qCov;
+
                     estimateMhe(argx0, q4wLoc, control2w, q4wCov, control2wCov, carParams, mheParams, solverCar);
                     std::vector<double> resx = std::vector<double>(argx0);
                     qCarEstMhe[0] = resx[(4*(N_mhe+1))-4]; //theta    return estimated 4 = n_states
@@ -370,25 +348,25 @@ int main(int argc, char **argv)
 
                 if(mheParams.mheActive)
                 {
-                    qLocTrailer[1] = continuousAngle(perceptionTh, qMheTrailer[1]); 
-                    controlsTrailer[0] = 0; //no measured value for dbeta
-                    controlsTrailer[1] = canData->tachoVelocity; //uCar.longitudinalVelocity + noiseArray[4];
-                
+                    controlsCovTrailer[0] = 0;
+                    controlsCovTrailer[1] = 1/mheParams.noiseVarianceLinearVel;
+
                     qCovTrailer[0] = 1/mheParams.noiseVarianceTrailer1;
                     qCovTrailer[1] = 1/mheParams.noiseVarianceTh;
                     qCovTrailer[2] = 1/mheParams.noiseVariancePos;
                     qCovTrailer[3] = 1/mheParams.noiseVariancePos;
                     qCovTrailer[4] = 1/mheParams.noiseVariancesteering;
-            
-                    controlsCovTrailer[0] = 0;
-                    controlsCovTrailer[0] = 1/mheParams.noiseVarianceLinearVel;
+
+                    qLocTrailer[1] = continuousAngle(perceptionTh, qMheTrailer[1]); 
+                    controlsTrailer[0] = 0; //no measured value for dbeta
+                    controlsTrailer[1] = canData->tachoVelocity; //uCar.longitudinalVelocity + noiseArray[4];
                 
                     std::rotate(q5wLocTrailer.begin(), q5wLocTrailer.begin()+1, q5wLocTrailer.end());
                     std::rotate(control2wTrailer.begin(), control2wTrailer.begin()+1, control2wTrailer.end());
                     std::rotate(q5wCovTrailer.begin(), q5wCovTrailer.begin()+1, q5wCovTrailer.end());
                     std::rotate(control2wCovTrailer.begin(), control2wCovTrailer.begin()+1, control2wCovTrailer.end());
-                    //q5wCovTrailer[N_mhe] = {0.0, 0.0, 0.0, 0.0, 0.0};
-                
+                    
+
                     ::ros::Duration sampleDiff = ::ros::Time::now() - perceptionPose->header.stamp;
                     int sampleNumber = floor(sampleDiff.toSec()/(1.0/mheParams.loopRate));
                     if (sampleNumber > N_mhe)
@@ -400,6 +378,7 @@ int main(int argc, char **argv)
                         if(!firstPoseMeasured)
                         {
                           ROS_INFO_STREAM("First config "<<qLocTrailer[0] <<" "<< qLocTrailer[1]<<" "<< qLocTrailer[2]<<" "<<qLocTrailer[3]<<" "<<qLocTrailer[4]);
+                          
                           for(size_t i = 0; i < q5wCovTrailer.size(); ++i)
                           {                            
                             q5wCovTrailer[i] = qCovTrailer;
@@ -412,33 +391,43 @@ int main(int argc, char **argv)
                           {
                             controlsTrailer[0] = 0.0;
                             controlsTrailer[1] = 0.0;
-                            control2wCovTrailer[i] = controlsTrailer;
+                            control2wTrailer[i] = controlsTrailer;
                             control2wCovTrailer[i] = controlsCovTrailer;
                           }
-
+                          sampleNo = sampleNumber;
+                          ROS_INFO_STREAM("feeding at: N_mhe - "<< sampleNo << " index");
                           ROS_INFO("First pose received. Starting.");
                           firstPoseMeasured = true;
                         }
 
+                        q5wCovTrailer[N_mhe] = {0.0, 0.0, 0.0, 0.0, 0.0};
 
-                        //ROS_INFO_STREAM("SampleIndex: "<<sampleNumber <<" ");
-                        q5wCovTrailer[N_mhe - sampleNumber] = qCovTrailer;
-                        q5wLocTrailer[N_mhe - sampleNumber] = qLocTrailer;
+                        //-----   canData to window -------//
+                        q5wCovTrailer[N_mhe][0] = 1/mheParams.noiseVarianceTrailer1;
+                        q5wCovTrailer[N_mhe][4] = 1/mheParams.noiseVariancesteering;
+
+                        q5wLocTrailer[N_mhe][0] = qLocTrailer[0];
+                        q5wLocTrailer[N_mhe][4] = qLocTrailer[4];
+
+                        control2wTrailer[N_mhe-1] = controlsTrailer;
+                        control2wCovTrailer[N_mhe-1] = controlsCovTrailer;
+                        //---------------------------------//
+
+                        // ---------perception to window -------//
+                        q5wCovTrailer[N_mhe -sampleNo][1] = 1/mheParams.noiseVarianceTh;
+                        q5wCovTrailer[N_mhe -sampleNo][2] = 1/mheParams.noiseVariancePos;
+                        q5wCovTrailer[N_mhe -sampleNo][3] = 1/mheParams.noiseVariancePos;
+
+                        q5wLocTrailer[N_mhe -sampleNo][1] = qLocTrailer[1];
+                        q5wLocTrailer[N_mhe -sampleNo][2] = qLocTrailer[2];
+                        q5wLocTrailer[N_mhe -sampleNo][3] = qLocTrailer[3];
+                        //--------------------------------------------//
+                        
+
                     }
-                    else
-                    {
-                      qCovTrailer[0] = 0.0;
-                      qCovTrailer[1] = 0.0;
-                      qCovTrailer[2] = 0.0;
-                      qCovTrailer[3] = 0.0;
-                      qCovTrailer[4] = 1/mheParams.noiseVariancesteering;
-
-                      q5wLocTrailer[N_mhe] = qLocTrailer;
-                      q5wCovTrailer[N_mhe] = qCovTrailer;
-                    }
-
+                    
+                    
                     q5wLocTrailer[0] = qEstFirstSampleTrailer;
-                    //added cov here though the setup could be better
                     qCovTrailer[0] = 5/mheParams.noiseVarianceTrailer1;
                     qCovTrailer[1] = 5/mheParams.noiseVarianceTh;
                     qCovTrailer[2] = 5/mheParams.noiseVariancePos;
