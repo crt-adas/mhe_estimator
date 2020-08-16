@@ -118,7 +118,7 @@ int main(int argc, char **argv)
     ArticulatedAngles articulatedAnglesWeightedData;
 
     auto poseWithCovarianceIn = nh.Input<geometry_msgs::PoseWithCovarianceStamped>("mhe_node/perception_data/pose_with_covariance");
-    geometry_msgs::PoseWithCovarianceStamped poseWithCovarianceData;
+    //geometry_msgs::PoseWithCovarianceStamped poseWithCovarianceData;
     
     auto poseWithCovarianceMheOut = nh.Output<geometry_msgs::PoseWithCovarianceStamped>("mhe_node/mhe_estimated/pose_with_covariance");
     geometry_msgs::PoseWithCovarianceStamped poseWithCovarianceMheData;
@@ -146,19 +146,30 @@ int main(int argc, char **argv)
         auto now = ::ros::Time::now();
      
         *canData = canDataIn(); 
+
         ackermannDriveData.speed = canData->tachoVelocity;
         ackermannDriveData.steering_angle = canData->steeringAngle;
+        auto& poseWithCovarianceData = poseWithCovarianceIn();
 
-        if(mheParams.perceptionGPS)
+        if (!mheParams.covarianceFromTopicStamp)
         {
-            *perceptionPose = perceptionPoseGpsIn(); 
-        }else
+            if(mheParams.perceptionGPS)
+            {
+                *perceptionPose = perceptionPoseGpsIn(); 
+            }else
+            {
+                *perceptionPose = perceptionPoseCamIn();  
+            }
+        } else
         {
-            *perceptionPose = perceptionPoseCamIn();  
+            perceptionPose->pose = poseWithCovarianceData.pose.pose;
+            perceptionPose->header.stamp = poseWithCovarianceData.header.stamp;      
         }
+       
+        
          
         auto perceptionTh = tf::getYaw(perceptionPose->pose.orientation);
-        ::ros::Duration timeDiff = perceptionPose->header.stamp - lastPerceptionTime ;
+        ::ros::Duration timeDiff = perceptionPose->header.stamp - lastPerceptionTime;
         lastPerceptionTime = perceptionPose->header.stamp;                           
         bool isPerceptionPoseFresh = timeDiff.toSec() >= 0.01;
 
@@ -180,10 +191,18 @@ int main(int argc, char **argv)
                 {
                     controlsCov[0] = 0;
                     controlsCov[1] = 1/mheParams.noiseVarianceLinearVel;
-
-                    qCov[0] = 1/mheParams.noiseVarianceTh;         
-                    qCov[1] = 1/mheParams.noiseVariancePos;
-                    qCov[2] = 1/mheParams.noiseVariancePos;
+                    if (!mheParams.covarianceFromTopicStamp)
+                    {       
+                        qCov[0] = 1/mheParams.noiseVarianceTh;         
+                        qCov[1] = 1/mheParams.noiseVariancePos;
+                        qCov[2] = 1/mheParams.noiseVariancePos;
+                    }else
+                    {
+                        qCov[0] = poseWithCovarianceData.pose.covariance.elems[35];        
+                        qCov[1] = poseWithCovarianceData.pose.covariance.elems[0];
+                        qCov[2] = poseWithCovarianceData.pose.covariance.elems[7];
+                    }
+                    
                     qCov[3] = 1/mheParams.noiseVariancesteering;
                     
                     qLoc[0] = continuousAngle(perceptionTh, qCarEstMhe[0]);
@@ -229,7 +248,7 @@ int main(int argc, char **argv)
 
                         q4wCov[N_mhe] = {0.0, 0.0, 0.0, 0.0};
                         //-----   canData to window -------//
-                        q4wCov[N_mhe][3] = 1/mheParams.noiseVariancesteering;    
+                        q4wCov[N_mhe][3] = qCov[3];    
                         q4wLoc[N_mhe][3] = qLoc[3];
 
                         control2w[N_mhe-1] = controls;
@@ -237,9 +256,9 @@ int main(int argc, char **argv)
                         //---------------------------------//
                         
                         // ---------perception to window -------//
-                        q4wCov[N_mhe - sampleNo][0] = 1/mheParams.noiseVarianceTh;
-                        q4wCov[N_mhe - sampleNo][1] = 1/mheParams.noiseVariancePos;
-                        q4wCov[N_mhe - sampleNo][2] = 1/mheParams.noiseVariancePos;
+                        q4wCov[N_mhe - sampleNo][0] = qCov[0];
+                        q4wCov[N_mhe - sampleNo][1] = qCov[1];
+                        q4wCov[N_mhe - sampleNo][2] = qCov[2];
 
                         q4wLoc[N_mhe - sampleNo][0] = qLoc[0];
                         q4wLoc[N_mhe - sampleNo][1] = qLoc[1];
@@ -249,11 +268,12 @@ int main(int argc, char **argv)
                     }
                    
                     q4wLoc[0] = qEstFirstSample; 
-                    qCov[0] = 5/mheParams.noiseVarianceTh;
-                    qCov[1] = 5/mheParams.noiseVariancePos;
-                    qCov[2] = 5/mheParams.noiseVariancePos;
-                    qCov[3] = 5/mheParams.noiseVariancesteering;
-                    q4wCov[0] = qCov;
+                    auto qCovF = qCov;
+                    qCovF[0] = qCov[0]*5;
+                    qCovF[1] = qCov[1]*5;
+                    qCovF[2] = qCov[2]*5;
+                    qCovF[3] = qCov[3]*5;
+                    q4wCov[0] = qCovF;
 
                     estimateMhe(argx0, q4wLoc, control2w, q4wCov, control2wCov, carParams, mheParams, solverCar);
                     std::vector<double> resx = std::vector<double>(argx0);
@@ -352,9 +372,18 @@ int main(int argc, char **argv)
                     controlsCovTrailer[1] = 1/mheParams.noiseVarianceLinearVel;
 
                     qCovTrailer[0] = 1/mheParams.noiseVarianceTrailer1;
-                    qCovTrailer[1] = 1/mheParams.noiseVarianceTh;
-                    qCovTrailer[2] = 1/mheParams.noiseVariancePos;
-                    qCovTrailer[3] = 1/mheParams.noiseVariancePos;
+                    if (!mheParams.covarianceFromTopicStamp)
+                    {  
+                        qCovTrailer[1] = 1/mheParams.noiseVarianceTh;
+                        qCovTrailer[2] = 1/mheParams.noiseVariancePos;
+                        qCovTrailer[3] = 1/mheParams.noiseVariancePos;
+                    }else
+                    {
+                        qCovTrailer[1] = poseWithCovarianceData.pose.covariance.elems[35];
+                        qCovTrailer[2] = poseWithCovarianceData.pose.covariance.elems[0];
+                        qCovTrailer[3] = poseWithCovarianceData.pose.covariance.elems[7];
+                    }
+
                     qCovTrailer[4] = 1/mheParams.noiseVariancesteering;
 
                     qLocTrailer[1] = continuousAngle(perceptionTh, qMheTrailer[1]); 
@@ -414,9 +443,9 @@ int main(int argc, char **argv)
                         //---------------------------------//
 
                         // ---------perception to window -------//
-                        q5wCovTrailer[N_mhe -sampleNo][1] = 1/mheParams.noiseVarianceTh;
-                        q5wCovTrailer[N_mhe -sampleNo][2] = 1/mheParams.noiseVariancePos;
-                        q5wCovTrailer[N_mhe -sampleNo][3] = 1/mheParams.noiseVariancePos;
+                        q5wCovTrailer[N_mhe -sampleNo][1] = qCovTrailer[1];
+                        q5wCovTrailer[N_mhe -sampleNo][2] = qCovTrailer[2];
+                        q5wCovTrailer[N_mhe -sampleNo][3] = qCovTrailer[3];
 
                         q5wLocTrailer[N_mhe -sampleNo][1] = qLocTrailer[1];
                         q5wLocTrailer[N_mhe -sampleNo][2] = qLocTrailer[2];
@@ -428,12 +457,15 @@ int main(int argc, char **argv)
                     
                     
                     q5wLocTrailer[0] = qEstFirstSampleTrailer;
-                    qCovTrailer[0] = 5/mheParams.noiseVarianceTrailer1;
-                    qCovTrailer[1] = 5/mheParams.noiseVarianceTh;
-                    qCovTrailer[2] = 5/mheParams.noiseVariancePos;
-                    qCovTrailer[3] = 5/mheParams.noiseVariancePos;
-                    qCovTrailer[4] = 5/mheParams.noiseVariancesteering;
-                    q5wCovTrailer[0] = qCovTrailer;
+                    auto qCovTrailerF = qCovTrailer;
+                    qCovTrailerF[0] = 5/mheParams.noiseVarianceTrailer1;
+
+                    qCovTrailerF[1] = qCovTrailer[1]*5;
+                    qCovTrailerF[2] = qCovTrailer[2]*5;
+                    qCovTrailerF[3] = qCovTrailer[3]*5;
+
+                    qCovTrailerF[4] = 5/mheParams.noiseVariancesteering;
+                    q5wCovTrailer[0] = qCovTrailerF;
 
                     control2wTrailer[N_mhe-1] = controlsTrailer;
                     control2wCovTrailer[N_mhe-1] = controlsCovTrailer;
